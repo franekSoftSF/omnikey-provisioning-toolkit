@@ -23,10 +23,10 @@
   }
 
 .EXAMPLE
-  .\Omnikey5022-Tool.ps1 -Mode Get
-  .\Omnikey5022-Tool.ps1 -Mode Set    -Profile bank-profile.json
-  .\Omnikey5022-Tool.ps1 -Mode Verify -Profile bank-profile.json          # exit 0=PASS 2=FAIL
-  .\Omnikey5022-Tool.ps1 -Mode Set    -Profile bank-profile.json -Lang pl
+  .\CheckProfile5022.ps1 -Mode Get
+  .\CheckProfile5022.ps1 -Mode Set    -Profile bank-profile.json
+  .\CheckProfile5022.ps1 -Mode Verify -Profile bank-profile.json          # exit 0=PASS 2=FAIL
+  .\CheckProfile5022.ps1 -Mode Set    -Profile bank-profile.json -Lang pl
 #>
 param(
     [ValidateSet("Get","Set","Verify","TestCard","Export")] [string]$Mode = "Get",

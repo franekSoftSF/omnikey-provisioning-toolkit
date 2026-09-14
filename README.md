@@ -37,7 +37,7 @@ omnikey-provisioning-toolkit/
 ├── README.md
 ├── LICENSE                          # MIT
 ├── .gitignore                       # keeps CSV logs & customer profiles out of git
-├── Omnikey5022-Tool.ps1             # single-reader tool (Get/Set/Verify/Export/TestCard)
+├── CheckProfile5022.ps1             # single-reader tool: Get/Set/Verify/Export/TestCard
 ├── Batch-Omnikey5022-Provision.ps1  # mass provisioning station
 └── profiles/
     └── example-profile.json
@@ -60,23 +60,26 @@ First run on a fresh machine:
 
 ```powershell
 Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
-Unblock-File .\Omnikey5022-Tool.ps1, .\Batch-Omnikey5022-Provision.ps1
+Unblock-File .\CheckProfile5022.ps1, .\Batch-Omnikey5022-Provision.ps1
 ```
 
 Close Workbench before using the tools — it holds the reader and DIRECT connect will fail.
 
 ---
 
-## Single-reader tool: `Omnikey5022-Tool.ps1`
+## Single-reader tool: `CheckProfile5022.ps1`
 
 ```powershell
-.\Omnikey5022-Tool.ps1 -Mode Get                                        # dump configuration
-.\Omnikey5022-Tool.ps1 -Mode Export -OutProfile .\my-profile.json       # reader -> profile JSON
-.\Omnikey5022-Tool.ps1 -Mode Set    -Profile .\my-profile.json          # profile -> reader (+reboot)
-.\Omnikey5022-Tool.ps1 -Mode Verify -Profile .\my-profile.json          # audit, exit 0=PASS 2=FAIL
-.\Omnikey5022-Tool.ps1 -Mode TestCard                                   # single card test
-.\Omnikey5022-Tool.ps1 -Mode TestCard -Loop                             # test a stack of cards
+.\CheckProfile5022.ps1 -Mode Get                                        # dump configuration
+.\CheckProfile5022.ps1 -Mode Export -OutProfile .\my-profile.json       # reader -> profile JSON
+.\CheckProfile5022.ps1 -Mode Set    -Profile .\my-profile.json          # profile -> reader (+reboot)
+.\CheckProfile5022.ps1 -Mode Verify -Profile .\my-profile.json          # audit, exit 0=PASS 2=FAIL
+.\CheckProfile5022.ps1 -Mode TestCard                                   # single card test
+.\CheckProfile5022.ps1 -Mode TestCard -Loop                             # test a stack of cards
 ```
+
+![CheckProfile5022 applying a full profile to an OMNIKEY 5022](docs/img/CheckProfile5022.png)
+*`Set` mode: every profile parameter confirmed, then Apply + reader reboot.*
 
 Common parameters: `-Lang en|pl`, `-ReaderMatch <regex>` (default `5022`),
 `-CardTimeout <s>` (TestCard), `-NoReboot` (Set).
@@ -223,11 +226,11 @@ verify failed: scans:30 maxReaders:1 serialsSeen:[IM0P6301PH] errors:[escape:0x8
 ```powershell
 # 1. Configure ONE reference reader (Workbench or Tool -Mode Set)
 # 2. Snapshot it:
-.\Omnikey5022-Tool.ps1 -Mode Export -OutProfile .\profiles\my-profile.json
+.\CheckProfile5022.ps1 -Mode Export -OutProfile .\profiles\my-profile.json
 # 3. Self-test the chain (must be all-PASS):
-.\Omnikey5022-Tool.ps1 -Mode Verify -Profile .\profiles\my-profile.json
+.\CheckProfile5022.ps1 -Mode Verify -Profile .\profiles\my-profile.json
 # 4. Card sanity check on the reference unit:
-.\Omnikey5022-Tool.ps1 -Mode TestCard
+.\CheckProfile5022.ps1 -Mode TestCard
 # 5. Run the series:
 .\Batch-Omnikey5022-Provision.ps1 -ProfilePath .\profiles\my-profile.json -LogCsv .\prov.csv
 # 6. Spot-check configured units with Verify / TestCard (e.g. 1 in 50).
