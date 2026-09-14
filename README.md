@@ -79,6 +79,7 @@ Close Workbench before using the tools — it holds the reader and DIRECT connec
 ```
 
 ![CheckProfile5022 applying a full profile to an OMNIKEY 5022](docs/img/CheckProfile5022.png)
+
 *`Set` mode: every profile parameter confirmed, then Apply + reader reboot.*
 
 Common parameters: `-Lang en|pl`, `-ReaderMatch <regex>` (default `5022`),
