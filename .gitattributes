@@ -1,0 +1,8 @@
+# Normalize everything to LF in the repository and in working copies.
+# PowerShell 5.1+ runs LF scripts fine; this keeps diffs clean across OSes.
+* text=auto eol=lf
+
+# Binary assets - never touch line endings
+*.png  binary
+*.jpg  binary
+*.zip  binary
