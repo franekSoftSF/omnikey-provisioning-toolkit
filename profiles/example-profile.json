@@ -1,0 +1,21 @@
+{
+  "iso14443a": {
+    "enabled": true,
+    "mifarePreferred": true,
+    "mifareKeyCache": false,
+    "rx": [212, 424],
+    "tx": [212, 424]
+  },
+  "iso14443b": {
+    "enabled": true,
+    "rx": [212, 424],
+    "tx": [212, 424]
+  },
+  "iso15693": { "enabled": true },
+  "felica":   { "enabled": true, "rx": [212], "tx": [212] },
+  "iclass":   { "enabled": true },
+  "emdSuppression": true,
+  "sleepModeCardDetection": true,
+  "sleepModePollingFrequency": "0.7Hz",
+  "pollingSearchOrder": ["iso14443a", "iso14443b", "iclass", "felica", "iso15693"]
+}

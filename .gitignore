@@ -1,0 +1,12 @@
+# provisioning logs and customer data - never commit
+*.csv
+prov/
+logs/
+
+# local test profiles with customer names
+profiles/*-prod.json
+profiles/*-bank*.json
+
+# OS noise
+Thumbs.db
+.DS_Store
