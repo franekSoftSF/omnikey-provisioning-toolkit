@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.ref_name }}
+      # runtime-only package content (CLAUDE.md release process) - the single place to change it
+      RELEASE_FILES: CheckProfile5022.ps1 Batch-Omnikey5022-Provision.ps1 profiles README.md LICENSE
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate tag
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::Tag '$TAG' is not vX.Y.Z or vX.Y.Z-suffix"; exit 1
+          fi
+
+      - name: Build ZIP and SHA256SUMS.txt
+        run: |
+          NAME="${{ github.event.repository.name }}-$TAG"
+          mkdir -p "dist/$NAME"
+          for f in $RELEASE_FILES; do
+            [ -e "$f" ] || { echo "::error::Release file '$f' is missing"; exit 1; }
+            cp -r "$f" "dist/$NAME/"
+          done
+          cd dist
+          zip -r -X -q "$NAME.zip" "$NAME"
+          sha256sum "$NAME.zip" > SHA256SUMS.txt
+          sha256sum -c SHA256SUMS.txt
+          unzip -l "$NAME.zip"
+          echo "NAME=$NAME" >> "$GITHUB_ENV"
+
+      - name: Prepare release notes
+        run: |
+          # notes always come from a file: docs/release-notes/<tag>.md, or the base version
+          # (v1.1.0-rc1 -> v1.1.0.md); its first "# " heading is the release title
+          BASE="${TAG%%-*}"
+          SRC=""
+          for f in "docs/release-notes/$TAG.md" "docs/release-notes/$BASE.md"; do
+            if [ -f "$f" ]; then SRC="$f"; break; fi
+          done
+          [ -n "$SRC" ] || { echo "::error::Missing docs/release-notes/$TAG.md (or $BASE.md)"; exit 1; }
+          TITLE="$(grep -m1 '^# ' "$SRC" | sed 's/^# //')"
+          [ -n "$TITLE" ] || TITLE="$TAG"
+          TITLE="${TITLE//$BASE/$TAG}"
+          sed '0,/^# /{/^# /d}' "$SRC" | sed "s/$BASE/$TAG/g" > dist/release-notes.md
+          echo "TITLE=$TITLE" >> "$GITHUB_ENV"
+          echo "Notes from $SRC, title: $TITLE"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PRE=""
+          if [[ "$TAG" == *-* ]]; then PRE="--prerelease"; fi
+          gh release create "$TAG" "dist/$NAME.zip" dist/SHA256SUMS.txt --title "$TITLE" --notes-file dist/release-notes.md --verify-tag $PRE

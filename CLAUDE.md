@@ -71,14 +71,18 @@ APDU (TLV HID AViatoR):
 v1.0.0 opublikowane. Release = ZIP runtime-only (`CheckProfile5022.ps1`, Batch, profiles/,
 README, LICENSE — bez .gitattributes/.gitignore/docs) + `SHA256SUMS.txt`;
 `gh release create vX.Y.Z <zip> SHA256SUMS.txt --title "..." --notes-file release-notes.md`
-(jedna linia, notes zawsze z pliku). Nazwa ZIP i katalogu w środku = tag.
+(jedna linia, notes zawsze z pliku). Nazwa ZIP i katalogu w środku = `<repo>-vX.Y.Z`.
+Od v1.1.0 automatycznie: push taga `v*` → `.github/workflows/release.yml` (najpierw CI) buduje
+ZIP + SHA256SUMS i robi `gh release create`. Notes: `docs/release-notes/<tag>.md` albo wersji
+bazowej (`v1.1.0-rc1` → `v1.1.0.md`), pierwszy nagłówek `# ` = tytuł; tag z sufiksem = prerelease.
+Lista plików ZIP: `RELEASE_FILES` w release.yml (zmienić przy refaktorze na moduły).
 Screenshot README: `docs/img/CheckProfile5022.png` (seriale zamaskowane; obowiązuje
 dla każdego przyszłego obrazka).
 
 ## Backlog (kolejność ustalona 2026-09-16)
 1. [x] Testy Pester (`tests/`, Pester 5, PS 5.1 + 7; skipped = walidacja do zrobienia w 3): `Build-Ops` (profil→ops), parsery (`Parse-Bool/Byte/Ascii`, baud, ATR),
    regresje na lekcje 1–2. Mockować Send-Escape. Testy charakteryzacyjne — siatka pod refaktor (3).
-2. [ ] GitHub Actions: PSScriptAnalyzer na push/PR + workflow release-on-tag (ZIP+SHA+release).
+2. [x] GitHub Actions (`ci.yml`, `release.yml`): PSScriptAnalyzer na push/PR + workflow release-on-tag (ZIP+SHA+release).
 3. [ ] Refaktor na moduły PowerShell (transport PC/SC, rejestr modeli, silnik profili, karty,
    batch). `CheckProfile5022.ps1` i Batch zostają jako cienkie wrappery — CLI bez zmian.
    Walidacja wartości profilu (bool/baud/poll) wchodzi tu, raz, w module.

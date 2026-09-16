@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']        # tags are covered by release.yml, which calls this workflow
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  PESTER_VERSION: 5.9.1
+  PSSA_VERSION: 1.25.0
+
+jobs:
+  lint:
+    name: PSScriptAnalyzer
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PSScriptAnalyzer
+        run: Install-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION -Scope CurrentUser -Force
+
+      - name: Analyze (fail on Error)
+        run: |
+          Import-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION
+          $results = @(Invoke-ScriptAnalyzer -Path . -Recurse -Severity Warning, Error)
+          $root = (Get-Location).Path
+          foreach ($r in $results) {
+              $file = [IO.Path]::GetRelativePath($root, $r.ScriptPath) -replace '\\', '/'
+              $level = if ($r.Severity -eq 'Error') { 'error' } else { 'warning' }
+              Write-Output "::$level file=$file,line=$($r.Line),title=$($r.RuleName)::$($r.Message -replace '\r?\n', ' ')"
+          }
+          $errors = @($results | Where-Object Severity -eq 'Error')
+          $summary = @("### PSScriptAnalyzer", "", "Errors: **$($errors.Count)**, warnings: **$($results.Count - $errors.Count)**", "")
+          if ($results.Count) {
+              $summary += '| Severity | Rule | Count |', '|---|---|---|'
+              $summary += $results | Group-Object Severity, RuleName | Sort-Object Count -Descending |
+                  ForEach-Object { '| {0} | {1} | {2} |' -f $_.Group[0].Severity, $_.Group[0].RuleName, $_.Count }
+          }
+          $summary | Out-File $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          if ($errors.Count) { Write-Output "::error::PSScriptAnalyzer found $($errors.Count) error(s)"; exit 1 }
+
+  test:
+    name: Pester (${{ matrix.shell }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [pwsh, powershell]     # PowerShell 7 and Windows PowerShell 5.1
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Pester ${{ env.PESTER_VERSION }}
+        run: |
+          [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+          if ($PSVersionTable.PSVersion.Major -lt 6) {
+              Install-PackageProvider NuGet -MinimumVersion 2.8.5.201 -Scope CurrentUser -Force | Out-Null
+          }
+          Install-Module Pester -RequiredVersion $env:PESTER_VERSION -Scope CurrentUser -Force -SkipPublisherCheck
+
+      - name: Run tests
+        run: |
+          Import-Module Pester -RequiredVersion $env:PESTER_VERSION
+          $PSVersionTable.PSVersion.ToString()
+          $c = New-PesterConfiguration
+          $c.Run.Path = './tests'
+          $c.Run.Exit = $true
+          $c.Output.Verbosity = 'Detailed'
+          $c.TestResult.Enabled = $true
+          $c.TestResult.OutputFormat = 'JUnitXml'
+          $c.TestResult.OutputPath = 'test-results-${{ matrix.shell }}.xml'
+          Invoke-Pester -Configuration $c
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.shell }}
+          path: test-results-${{ matrix.shell }}.xml

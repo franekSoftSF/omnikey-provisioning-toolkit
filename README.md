@@ -1,5 +1,7 @@
 # OMNIKEY Provisioning Toolkit
 
+[![CI](https://github.com/franekSoftSF/omnikey-provisioning-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/franekSoftSF/omnikey-provisioning-toolkit/actions/workflows/ci.yml)
+
 **Scripted configuration, audit and mass provisioning of HID OMNIKEY® smart card readers** (currently: **OMNIKEY 5022**; protocol-compatible with the AViatoR family — 5122/5422 contactless slot) —
 no Workbench GUI required. Built around a real deployment across a large fleet for a banking-sector customer,
 with the key use case of enabling **MIFARE Classic emulation support (`mifarePreferred`)** on
@@ -282,6 +284,11 @@ Works on Windows PowerShell 5.1 and PowerShell 7. What is covered:
   returns `@{errors=@()}` on success, never `$null`, and sends no Apply/Reboot after a failed write
 - **Repo guards**: CLI parameters unchanged, P/Invoke signatures tied to their namespace,
   EN/PL message keys in sync, LF line endings
+
+GitHub Actions runs PSScriptAnalyzer (fails on errors, reports warnings) and this suite on
+Windows PowerShell 5.1 and PowerShell 7 for every push and pull request. Pushing a `vX.Y.Z` tag
+builds the runtime-only ZIP and `SHA256SUMS.txt` and publishes the release
+(notes from `docs/release-notes/<tag>.md`; tags with a suffix such as `-rc1` become pre-releases).
 
 Both scripts can be dot-sourced (`. .\CheckProfile5022.ps1`) to load their functions without
 touching PC/SC. Run them as usual (`.\CheckProfile5022.ps1 …`) for real work.
