@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  OMNIKEY 5022 batch provisioning (USB hub, series of ~1800 units).
+  OMNIKEY 5022 batch provisioning (USB hub, large series of units).
   v9: profile-driven (v8: no PS closures; v9: Apply-All returns hashtable - empty-array unroll fix) (same JSON as Omnikey5022-Tool), full Set+Verify per unit,
       CSV audit with serial, product name, firmware and an inventory number column.
 
@@ -15,8 +15,8 @@
     or is pre-filled from -InventoryMap <csv> with columns: serial;inventory_number
 
 .EXAMPLE
-  .\Batch-Omnikey5022-Provision.ps1 -ProfilePath .\bank-profile.json -LogCsv C:\prov\omnikey1800.csv
-  .\Batch-Omnikey5022-Provision.ps1 -ProfilePath .\bank-profile.json -InventoryMap .\inv.csv -Lang pl
+  .\Batch-Omnikey5022-Provision.ps1 -ProfilePath .\my-profile.json -LogCsv C:\prov\omnikey-provisioning.csv
+  .\Batch-Omnikey5022-Provision.ps1 -ProfilePath .\my-profile.json -InventoryMap .\inv.csv -Lang pl
 #>
 param(
     [Parameter(Mandatory)][string]$ProfilePath,

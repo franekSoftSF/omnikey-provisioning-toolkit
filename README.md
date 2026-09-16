@@ -1,7 +1,7 @@
 # OMNIKEY Provisioning Toolkit
 
 **Scripted configuration, audit and mass provisioning of HID OMNIKEY® smart card readers** (currently: **OMNIKEY 5022**; protocol-compatible with the AViatoR family — 5122/5422 contactless slot) —
-no Workbench GUI required. Built around a real deployment of 1,800 units for a banking customer,
+no Workbench GUI required. Built around a real deployment across a large fleet for a banking-sector customer,
 with the key use case of enabling **MIFARE Classic emulation support (`mifarePreferred`)** on
 dual-interface cards.
 
@@ -198,8 +198,8 @@ Designed for an operator with a **powered** USB hub:
 
 ```
 timestamp;serial;product_name;firmware;inventory_number;result;detail
-2026-09-14T10:32:11;IM0P6301PH;OMNIKEY 5022;2.0.0;;PASS;configured and verified
-2026-09-14T10:33:05;IM0P6301PJ;OMNIKEY 5022;2.0.0;;PASS;already compliant
+2026-09-14T10:32:11;EXAMPLE0001;OMNIKEY 5022;2.0.0;;PASS;configured and verified
+2026-09-14T10:33:05;EXAMPLE0002;OMNIKEY 5022;2.0.0;;PASS;already compliant
 ```
 
 - `inventory_number` is left **empty for the customer** to fill in (e.g. Excel), or pre-filled
@@ -213,7 +213,7 @@ timestamp;serial;product_name;firmware;inventory_number;result;detail
 A failed post-reboot verification logs a trace:
 
 ```
-verify failed: scans:30 maxReaders:1 serialsSeen:[IM0P6301PH] errors:[escape:0x80100017] ctxResets:2
+verify failed: scans:30 maxReaders:1 serialsSeen:[EXAMPLE0001] errors:[escape:0x80100017] ctxResets:2
 ```
 
 - `maxReaders:0` → the unit never re-enumerated: check **hub power**, raise `-RebootWait`.
@@ -238,7 +238,7 @@ verify failed: scans:30 maxReaders:1 serialsSeen:[IM0P6301PH] errors:[escape:0x8
 ```
 
 Throughput note: with a 10-port powered hub, expect ~2.5–3 min per batch including handling —
-roughly 6–9 h of operator time for ~1,800 units on one station; physical packing dominates.
+roughly 200–300 units per hour of operator time on one station; physical packing dominates.
 
 ## Exit codes
 
