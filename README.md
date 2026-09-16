@@ -39,8 +39,9 @@ omnikey-provisioning-toolkit/
 ├── .gitignore                       # keeps CSV logs & customer profiles out of git
 ├── CheckProfile5022.ps1             # single-reader tool: Get/Set/Verify/Export/TestCard
 ├── Batch-Omnikey5022-Provision.ps1  # mass provisioning station
-└── profiles/
-    └── example-profile.json
+├── profiles/
+│   └── example-profile.json
+└── tests/                           # Pester 5 suite (no hardware needed)
 ```
 
 ## Requirements
@@ -258,6 +259,32 @@ roughly 200–300 units per hour of operator time on one station; physical packi
 | `Add-Type: type WinSCard already exists` | Fixed: each script uses its own namespace (`OmniTool`/`OmniBatch`) with an idempotent guard. If you modify the P/Invoke signatures, **rename the namespace** — .NET types cannot be unloaded from a live session. |
 | Card shows as CPU although it "is MIFARE" | Dual-interface card + `mifarePreferred` disabled → enable and retest (`TestCard` prints this hint itself). |
 | Auth test fails on customer cards | Expected: production cards don't use transport keys; it does not indicate a misconfigured reader. |
+
+## Testing
+
+The `tests/` folder holds a [Pester 5](https://pester.dev) suite that runs **without a reader,
+a card or the Smart Card service**: every reader exchange goes through a mocked `Send-Escape`,
+and the expected APDUs are written out by hand from the protocol notes, not taken from the scripts.
+
+```powershell
+Install-Module Pester -MinimumVersion 5.5.0 -MaximumVersion 5.99.99 -Scope CurrentUser -SkipPublisherCheck
+Invoke-Pester ./tests -Output Detailed
+```
+
+Works on Windows PowerShell 5.1 and PowerShell 7. What is covered:
+
+- **Profile → operations** (`Build-Ops`): every key type (bool / baud / sleep frequency /
+  polling order), partial profiles, errors for unknown frequency or technology names
+- **Parsers**: `Parse-Bool`, `Parse-Byte`, `Parse-Ascii` (serial / product name TLV), firmware,
+  baud-byte encoding (106 kbps implicit), card-type classification from the ATR (`TestCard`)
+- **Op engine**: the exact SET APDUs for `profiles/example-profile.json`, checks never write
+- **Regressions** for the pitfalls below: ops stay data-only (no closures); `Apply-All`
+  returns `@{errors=@()}` on success, never `$null`, and sends no Apply/Reboot after a failed write
+- **Repo guards**: CLI parameters unchanged, P/Invoke signatures tied to their namespace,
+  EN/PL message keys in sync, LF line endings
+
+Both scripts can be dot-sourced (`. .\CheckProfile5022.ps1`) to load their functions without
+touching PC/SC. Run them as usual (`.\CheckProfile5022.ps1 …`) for real work.
 
 ## Development notes
 

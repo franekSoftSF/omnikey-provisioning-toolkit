@@ -212,6 +212,9 @@ function Write-Log([hashtable]$id,[string]$result,[string]$detail){
 function Beep-Ok{ try{[console]::Beep(1200,120);[console]::Beep(1600,180)}catch{} }
 function Beep-Fail{ try{[console]::Beep(400,600)}catch{} }
 
+# dot-sourced (tests): expose functions only, never touch PC/SC or the CSV
+if ($MyInvocation.InvocationName -eq '.') { return }
+
 # ---------- profile + resume ----------
 $prof = Get-Content $ProfilePath -Raw | ConvertFrom-Json
 $ops  = Build-Ops $prof

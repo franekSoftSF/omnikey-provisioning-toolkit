@@ -324,6 +324,18 @@ function Wait-CardRemoved {
         Start-Sleep -Milliseconds 400
     }
 }
+# classify a PC/SC ATR: storage cards carry RID A0 00 00 03 06 + standard byte + 2-byte name code
+function Get-CardType([string]$atrHex) {
+    if ($atrHex -match "A000000306..(....)") {
+        $code = $Matches[1]
+        if ($StorageNames.ContainsKey($code)) {
+            $name,$classic = $StorageNames[$code]
+            return @{kind="storage";code=$code;name=$name;classic=[bool]$classic}
+        }
+        return @{kind="storage";code=$code;name=$null;classic=$false}
+    }
+    @{kind="cpu";code=$null;name=$null;classic=$false}
+}
 function Invoke-CardTest([bool]$prefEnabled) {
     Write-Host ((T prefState $(if($prefEnabled){"ENABLED"}else{"DISABLED"})))
     Write-Host (T cardWait $CardTimeout)
@@ -343,16 +355,11 @@ function Invoke-CardTest([bool]$prefEnabled) {
         try { $u=Send-Apdu $c $proto "FFCA000000"
               if($u -match '^(.+)9000$'){ Write-Host ("{0}: {1}" -f (T cardUid),$Matches[1]) } } catch { }
 
-        $isClassic=$false
-        if($atrHex -match "A000000306..(....)"){
-            $code=$Matches[1]
-            if($StorageNames.ContainsKey($code)){
-                $name,$classic=$StorageNames[$code]
-                Write-Host (T cardIs $name) -ForegroundColor Cyan
-                $isClassic=$classic
-            } else {
-                Write-Host (T cardRaw $code) -ForegroundColor Yellow
-            }
+        $ct=Get-CardType $atrHex
+        $isClassic=$ct.classic
+        if($ct.kind -eq "storage"){
+            if($ct.name){ Write-Host (T cardIs $ct.name) -ForegroundColor Cyan }
+            else        { Write-Host (T cardRaw $ct.code) -ForegroundColor Yellow }
         } else {
             Write-Host (T cardIs (T cardCpu)) -ForegroundColor Cyan
         }
@@ -397,6 +404,9 @@ function Export-Profile([IntPtr]$card,[string]$path) {
     }
     $prof | ConvertTo-Json -Depth 4 | Out-File $path -Encoding utf8
 }
+
+# dot-sourced (tests): expose functions only, never touch PC/SC
+if ($MyInvocation.InvocationName -eq '.') { return }
 
 # ================= MAIN =================
 Ensure-Context

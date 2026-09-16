@@ -76,7 +76,7 @@ Screenshot README: `docs/img/CheckProfile5022.png` (seriale zamaskowane; obowią
 dla każdego przyszłego obrazka).
 
 ## Backlog (kolejność ustalona 2026-09-16)
-1. [ ] Testy Pester: `Build-Ops` (profil→ops), parsery (`Parse-Bool/Byte/Ascii`, baud, ATR),
+1. [x] Testy Pester (`tests/`, Pester 5, PS 5.1 + 7; skipped = walidacja do zrobienia w 3): `Build-Ops` (profil→ops), parsery (`Parse-Bool/Byte/Ascii`, baud, ATR),
    regresje na lekcje 1–2. Mockować Send-Escape. Testy charakteryzacyjne — siatka pod refaktor (3).
 2. [ ] GitHub Actions: PSScriptAnalyzer na push/PR + workflow release-on-tag (ZIP+SHA+release).
 3. [ ] Refaktor na moduły PowerShell (transport PC/SC, rejestr modeli, silnik profili, karty,
