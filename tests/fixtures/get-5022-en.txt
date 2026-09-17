@@ -1,0 +1,18 @@
+Reader: HID Global OMNIKEY 5022 Smart Card Reader 0
+Serial: EXAMPLE0001
+
+CURRENT CONFIGURATION
+  iso14443a.enabled            True
+  iso14443a.mifarePreferred    True
+  iso14443a.mifareKeyCache     False
+  iso14443a.baud               rx:106/212/424 tx:106/212/424
+  iso14443b.enabled            True
+  iso14443b.baud               rx:106/212/424 tx:106/212/424
+  iso15693.enabled             True
+  felica.enabled               True
+  felica.baud                  rx:106/212 tx:106/212
+  iclass.enabled               True
+  emdSuppression               True
+  sleepModeCardDetection       True
+  sleepModePollingFrequency    0.7Hz
+  pollingSearchOrder           iso14443a,iso14443b,iclass,felica,iso15693

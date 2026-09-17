@@ -1,0 +1,11 @@
+{
+  "_about": "MIFARE cards + FIDO security keys over NFC: both use ISO 14443 Type A. Every other contactless technology is switched off and removed from polling. Bit rates and sleep settings are not changed. Usable as a normal profile (set / verify / batch) and offered as a starting point by 'configure'.",
+  "_requires": ["iso14443a.enabled", "iso14443b.enabled", "iso15693.enabled", "felica.enabled", "iclass.enabled", "pollingSearchOrder"],
+  "iso14443a": { "enabled": true, "mifarePreferred": true, "mifareKeyCache": false },
+  "iso14443b": { "enabled": false },
+  "iso15693": { "enabled": false },
+  "felica": { "enabled": false },
+  "iclass": { "enabled": false },
+  "emdSuppression": true,
+  "pollingSearchOrder": ["iso14443a"]
+}

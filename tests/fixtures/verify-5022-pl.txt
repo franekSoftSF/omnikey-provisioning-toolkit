@@ -1,0 +1,20 @@
+Czytnik: HID Global OMNIKEY 5022 Smart Card Reader 0
+Nr seryjny: EXAMPLE0001
+
+AUDYT: porownuje konfiguracje czytnika z profilem...
+  [PASS] iso14443a.enabled = True
+  [PASS] iso14443a.mifarePreferred = True
+  [PASS] iso14443a.mifareKeyCache = False
+  [PASS] iso14443a.baud = rx:106/212/424 tx:106/212/424
+  [PASS] iso14443b.enabled = True
+  [PASS] iso14443b.baud = rx:106/212/424 tx:106/212/424
+  [PASS] iso15693.enabled = True
+  [PASS] felica.enabled = True
+  [PASS] felica.baud = rx:106/212 tx:106/212
+  [PASS] iclass.enabled = True
+  [PASS] emdSuppression = True
+  [PASS] sleepModeCardDetection = True
+  [PASS] sleepModePollingFrequency = 0.7Hz
+  [PASS] pollingSearchOrder = iso14443a,iso14443b,iclass,felica,iso15693
+
+WYNIK AUDYTU: PASS (sprawdzono parametrow: 14)

@@ -1,0 +1,7 @@
+Reader: HID Global OMNIKEY 3x21 Smart Card Reader 0
+Serial: ?
+
+CURRENT CONFIGURATION
+  contactSlot.enabled          True
+  contactSlot.operatingMode    iso7816
+  contactSlot.voltageSequence  5V,3V,1.8V
