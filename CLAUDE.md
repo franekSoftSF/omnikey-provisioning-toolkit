@@ -15,16 +15,21 @@ prezentowane jako Classic zamiast CPU). Publicznie NIE podajemy liczby sztuk ani
 ## Komponenty
 Od v1.2 cała logika jest w module `OmnikeyToolkit/` (psd1 + psm1; komponenty = pliki .ps1 w
 kolejności z `$ComponentFiles` w psm1: Messages, Native, Transport, Apdu, Models, Profile, Engine,
-Card, Batch, Cli + Public: `Invoke-OmnikeyCli`, `Invoke-OmnikeyTool`, `Invoke-OmnikeyBatch`).
+Card, Batch, Cli, Configure + Public: `Invoke-OmnikeyCli`, `Invoke-OmnikeyTool`, `Invoke-OmnikeyBatch`).
 Tylko `Private/Transport.ps1` woła winscard (za funkcjami `Invoke-Native*` — mockowalne).
 Skrypty w roocie to cienkie wrappery (param → Import-Module -Force → funkcja → `exit $code`;
 pilnuje tego tests/Repo.Tests.ps1):
-- `Omnikey.ps1` — jeden punkt wejścia: `get|set|verify|export|testcard|batch|readers`, bez
+- `Omnikey.ps1` — jeden punkt wejścia: `get|set|verify|export|testcard|batch|readers|configure`, bez
   komendy = menu. Bez `-ReaderMatch` bierze jedyny czytnik OMNIKEY (kilka ⇒ w menu wybór numeru,
   z linii poleceń błąd z listą — skrypt nigdy nie zgaduje);
   `-ReaderMatch <model>` (np. 3121) mapuje na nazwę PC/SC z rejestru. Parametr spoza komendy = błąd.
+- Menu (`Omnikey.ps1` bez komendy) wraca po każdej akcji; błąd akcji = czerwony komunikat i dalej
+  menu; `0` = wyjście. Pozycja 8 / komenda `configure` (Private/Configure.ps1): pytania tylko o klucze
+  modelu, domyślnie obecna wartość (Enter), podsumowanie zmian, opcjonalny zapis profilu, zapis do
+  czytnika TYLKO zmienionych kluczy przez `Invoke-OmnikeyTool -Mode Set` (temp JSON). Odpowiedzi
+  zwracane jako `@{value}` (lekcja 2: puste listy). Get/Export: wartości na zielono (`Write-ConfigLine`).
 - `Private/Models.ps1` — rejestr modeli (dane): product name z A0 82 → klucze profilu, `verified`,
-  `voltageAuto`. 5022 (contactless, verified), 3121 (contact, verified), 5422/5122 (wg OK5422.cs,
+  `emvcoVoltage`. 5022 (contactless, verified), 3121 (contact, verified), 5422/5122 (wg OK5422.cs,
   NIEzweryfikowane). Nieznany model: tylko odczyt, zapis zablokowany (Set/Batch).
 - Walidacja profilu (Profile.ps1): nieznane klucze (poza `_*`), typy, baud, napięcia, klucze
   nieobsługiwane przez model ⇒ throw z komunikatem EN/PL przed jakimkolwiek zapisem.
@@ -76,8 +81,11 @@ Zweryfikowane na sprzęcie 2026-09-17:
 - OMNIKEY 3121 (fw 1.6.0, USB 076B:3031, nazwa PC/SC "HID Global OMNIKEY 3x21 Smart Card Reader 0"):
   product `OMNIKEY 3121`, platform AViatoR, 1 contact / 0 contactless slot, **serial pusty**
   (`BD0292009000`; atrybut PC/SC też "?"). Contact slot GET/SET + Apply + Reboot działa
-  (EMVCo, sekwencja 1.8V,3V,5V = 0x39 i przywrócenie 0x1B zweryfikowane). `voltageSequence "auto"`
-  przyjęte (9000), ale po reboocie czytnik raportuje `03` (tylko 5V) ⇒ w rejestrze `voltageAuto=$false`.
+  (EMVCo, sekwencja 1.8V,3V,5V = 0x39, `auto` = 0x00 i przywrócenie 0x1B zweryfikowane w ISO 7816).
+  **W trybie EMVCo 3121 raportuje voltage sequence `03` (tylko 5V)**; zapisana sekwencja wraca po
+  przełączeniu na ISO 7816 (bez ponownego zapisu). Wcześniejszy wniosek "auto nie jest trzymane" był
+  BŁĘDNY (test łączył EMVCo + auto). W rejestrze `emvcoVoltage='5V'` ⇒ profil emvco + inna sekwencja
+  = błąd walidacji; `configure` pomija pytanie o napięcia po wyborze EMVCo.
   Contactless GET na 3121 zwracają częściowo błędy `9E02...`, częściowo przypadkowe wartości —
   dlatego decyduje rejestr modeli, nie odpowiedzi czytnika.
 - HID Global "Crescendo NFC Reader" (USB-C, USB 076B:5521, nazwa PC/SC "HID Global Crescendo NFC

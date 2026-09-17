@@ -97,7 +97,8 @@ Close Workbench before using the tools — it holds the reader and DIRECT connec
 .\Omnikey.ps1 verify   -ProfilePath .\my-profile.json            # audit, exit 0=PASS 2=FAIL
 .\Omnikey.ps1 testcard [-Loop]                                   # card test
 .\Omnikey.ps1 batch    -ProfilePath .\my-profile.json -LogCsv .\prov.csv
-.\Omnikey.ps1                                                    # interactive menu
+.\Omnikey.ps1 configure                                          # set the reader by answering questions
+.\Omnikey.ps1                                                    # interactive menu (returns to it after each action)
 ```
 
 ```
@@ -118,6 +119,34 @@ HID Global OMNIKEY 5022 Smart Card Reader 0
 - Parameters are the same as in the scripts below (`-ProfilePath` also accepts `-Profile`);
   a parameter that does not belong to the command (e.g. `get -Loop`) is an error.
 - `-Lang pl` for Polish messages, exit codes as in [Exit codes](#exit-codes).
+- The menu (`.\Omnikey.ps1` without a command) comes back after every action; an error is shown in
+  red and the menu continues. `0` exits. (`batch` runs until `Ctrl+C`, which ends the script.)
+
+### Configure by answering questions: `configure`
+
+`configure` reads the connected reader and asks one question per parameter **that model supports**,
+with a short description and the reader's current value in brackets — press **Enter** to keep it:
+
+```
+CONFIGURE OMNIKEY 5022 - answer each question, Enter keeps the current value
+
+  Present dual-interface cards as MIFARE Classic (Classic emulation)
+iso14443a.mifarePreferred [True] (y/n): n
+
+  ISO 14443 Type A - extra bit rates
+iso14443a.baud rx kbps [212,424] (list of 212 424 848; - = none; 106 is always on):
+...
+Changes:
+  iso14443a.mifarePreferred: True -> False
+Save these settings as a profile file (path, Enter = do not save): .\profiles\my-profile.json
+Write 1 change(s) to the reader now (Apply + reboot)? (y/N): y
+```
+
+- Answers: `y`/`n` (also `t`/`tak`/`nie`), numbers or names from the list shown, comma-separated lists.
+- Nothing is written until the last question; then **only the changed parameters** are written with
+  the same Set path (`[OK]` lines, Apply, reboot). The saved file is a normal profile for `verify`,
+  `set` and `batch`. The profile is validated before saving or writing.
+- On OMNIKEY 3121 only the contact slot is asked; choosing EMVCo skips the voltage question.
 
 ## Single-reader tool: `CheckProfile5022.ps1`
 
@@ -217,7 +246,7 @@ stop with a clear message and exit code `1`. Keys starting with `_` are ignored 
 | `pollingSearchOrder` | Polling Search Order | up to 5 of `iso14443a` `iso14443b` `iso15693` `iclass` `felica` `none` | Technology search order; put the production card technology first. |
 | `contactSlot.enabled` | Contact Slot → Enabled | `true`/`false` | Contact (ISO 7816) slot on/off — readers with a contact slot only. |
 | `contactSlot.operatingMode` | Operating Mode | `iso7816`, `emvco` | Contact card handling: ISO 7816 (ID, signature, PIV cards) or EMVCo (payment). |
-| `contactSlot.voltageSequence` | Voltage Sequence | `"auto"` or 1–3 of `"5V"` `"3V"` `"1.8V"` in order | Order of card supply voltages tried at power-up. OMNIKEY 3121 does not keep `"auto"` (it reports `5V` after reboot) — list the voltages. |
+| `contactSlot.voltageSequence` | Voltage Sequence | `"auto"` or 1–3 of `"5V"` `"3V"` `"1.8V"` in order | Order of card supply voltages tried at power-up. In **EMVCo** mode OMNIKEY 3121 reports `5V` only (the stored sequence comes back in ISO 7816 mode), so a profile combining `emvco` with another sequence is rejected. |
 
 Contact reader example (OMNIKEY 3121):
 
