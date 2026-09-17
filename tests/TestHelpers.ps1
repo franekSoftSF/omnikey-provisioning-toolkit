@@ -27,6 +27,7 @@ $ApduPollSet    = 'FF70076B0FA20DA10BA409A0078905'
 $ApduPollGet    = 'FF70076B0AA208A006A404A002890000'
 $ApduApply      = 'FF70076B08A206A104A902800000'
 $ApduReboot     = 'FF70076B08A206A104A902830000'
+$ApduFactoryDefaults = 'FF70076B08A206A104A902810000'
 $ApduSerial     = 'FF70076B08A206A004A002920000'
 $ApduProduct    = 'FF70076B08A206A004A002820000'
 $ApduFirmware   = 'FF70076B08A206A004A002850000'
@@ -110,7 +111,7 @@ function New-Reader3121Sim {
 }
 function Test-IsWriteApdu([string]$apdu) {
     $apdu.StartsWith($ApduSetPrefix) -or $apdu.StartsWith($ApduPollSet) -or $apdu.StartsWith($ApduContactSetPrefix) -or
-        $apdu -eq $ApduApply -or $apdu -eq $ApduReboot
+        $apdu -eq $ApduApply -or $apdu -eq $ApduReboot -or $apdu -eq $ApduFactoryDefaults
 }
 
 # console text written with Write-Host (information stream), honouring -NoNewline

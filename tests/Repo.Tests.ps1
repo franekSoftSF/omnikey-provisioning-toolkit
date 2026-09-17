@@ -43,7 +43,7 @@ BeforeDiscovery {
             Name = 'Omnikey.ps1'
             Entry = 'Invoke-OmnikeyCli'
             Params = @(
-                'Command | [Parameter(Position = 0)][ValidateSet("get", "set", "verify", "export", "testcard", "batch", "readers", "configure")][string] | '
+                'Command | [Parameter(Position = 0)][ValidateSet("get", "set", "verify", "export", "testcard", "batch", "readers", "configure", "restore")][string] | '
                 'ProfilePath | [Alias("Profile")][string] | ""'
                 'Lang | [ValidateSet("en", "pl")][string] | "en"'
                 'ReaderMatch | [string] | ""'

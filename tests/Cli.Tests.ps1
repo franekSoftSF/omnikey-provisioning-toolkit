@@ -282,11 +282,11 @@ Describe 'Invoke-OmnikeyCli (Omnikey.ps1)' {
     }
 
     It 'the menu ignores an empty choice, reports an unknown one and exits with 0 on "0"' {
-        $answers = [System.Collections.Queue]::new([object[]]@('', '9', '0'))
+        $answers = [System.Collections.Queue]::new([object[]]@('', 'x', '0'))
         Mock Read-Host { $answers.Dequeue() }
         $r = Invoke-Captured { Invoke-OmnikeyCli }
         @($r.out) | Should -Be @(0)
-        $r.text | Should -Match "Unknown choice: '9'"
+        $r.text | Should -Match "Unknown choice: 'x'"
         Should -Invoke Invoke-OmnikeyTool -Times 0 -Exactly
     }
 

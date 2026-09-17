@@ -56,7 +56,8 @@ function Invoke-OmnikeyCli {
 
     switch ($Command) {
         'readers' { Show-ReaderList $ReaderMatch; return [int]0 }
-        'configure' { return [int](Invoke-ReaderConfigurator $ReaderMatch ([bool]$Interactive) $Lang ([bool]$NoReboot)) }
+        'configure' { return [int](Invoke-ReaderConfigurator $ReaderMatch ([bool]$Interactive) $Lang ([bool]$NoReboot) $script:BackupDir) }
+        'restore' { return [int](Invoke-ReaderRestore $ReaderMatch ([bool]$Interactive) $Lang ([bool]$NoReboot) $ProfilePath $script:BackupDir) }
         'batch' {
             return [int](Invoke-OmnikeyBatch -ProfilePath $ProfilePath -LogCsv $LogCsv -InventoryMap $InventoryMap -Lang $Lang `
                 -ReaderMatch $(if ($ReaderMatch) { $ReaderMatch } else { 'OMNIKEY' }) `
@@ -65,7 +66,7 @@ function Invoke-OmnikeyCli {
         default {
             $match = Resolve-SingleReader $ReaderMatch ([bool]$Interactive)
             return [int](Invoke-OmnikeyTool -Mode $script:CliModes[$Command] -ProfilePath $ProfilePath -Lang $Lang -ReaderMatch $match `
-                -NoReboot:$NoReboot -RebootWait $RebootWait -CardTimeout $CardTimeout -OutProfile $OutProfile -Loop:$Loop)
+                -NoReboot:$NoReboot -RebootWait $RebootWait -CardTimeout $CardTimeout -OutProfile $OutProfile -Loop:$Loop -BackupDir $script:BackupDir)
         }
     }
 }

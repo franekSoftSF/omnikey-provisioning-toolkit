@@ -28,6 +28,19 @@ pilnuje tego tests/Repo.Tests.ps1):
   modelu, domyślnie obecna wartość (Enter), podsumowanie zmian, opcjonalny zapis profilu, zapis do
   czytnika TYLKO zmienionych kluczy przez `Invoke-OmnikeyTool -Mode Set` (temp JSON). Odpowiedzi
   zwracane jako `@{value}` (lekcja 2: puste listy). Get/Export: wartości na zielono (`Write-ConfigLine`).
+- **ZASADA: każda zmiana musi mieć drogę powrotu** (priorytet właściciela). `Omnikey.ps1` przed każdym
+  zapisem (`set`, `configure`, `restore`) robi kopię do `.\omnikey-backups\` (Private/Restore.ps1,
+  `Save-ReaderBackup`; profil + blok `_backup`; folder w .gitignore). `restore` / menu 9: kopia tego
+  czytnika (model + serial, najnowsza pierwsza), plik profilu albo ustawienia fabryczne
+  (`FF70076B08A206A104A902810000`, ReaderConfigurationControl.RestoreFactoryDefaults) + reboot, zawsze
+  z potwierdzeniem i kopią przed. Przywracanie zapisuje tylko różnice. CheckProfile5022/Batch bez kopii
+  (CLI v1.0). Nowe funkcje zapisujące MUSZĄ przechodzić przez tę ścieżkę. Testy na sprzęcie: kopia/eksport
+  na start, przywrócenie + verify na koniec. Ustawień fabrycznych na sprzęcie użytkownika NIE uruchamiać
+  bez jego wyraźnej zgody (kasują też ustawienia spoza toolkitu) — jeszcze nie testowane na sprzęcie.
+- `configure`: pierwsze pytanie = punkt startowy (1 obecne ustawienia, 2+ presety z
+  `OmnikeyToolkit/Presets/*.json`, np. `mifare-fido.json` — zweryfikowany na 5022). Enter = wartość w
+  nawiasie, `d` = wartość z czytnika; `n` przy włączeniu technologii pomija jej pytania (`dependsOn`)
+  i usuwa ją z podpowiedzi pollingu.
 - `Private/Models.ps1` — rejestr modeli (dane): product name z A0 82 → klucze profilu, `verified`,
   `emvcoVoltage`. 5022 (contactless, verified), 3121 (contact, verified), 5422/5122 (wg OK5422.cs,
   NIEzweryfikowane). Nieznany model: tylko odczyt, zapis zablokowany (Set/Batch).
@@ -162,6 +175,6 @@ dla każdego przyszłego obrazka).
 9. [ ] Ewentualny port pyscard/Python (Linux) — APDU bez zmian.
 
 ## Konwencje pracy
-Kod i README po angielsku; komunikaty runtime EN/PL. Commity: prefiksy `docs:`, `fix:`,
+Kod i README po angielsku; komunikaty runtime EN/PL. Każda funkcja zapisu = kopia przed + droga powrotu (restore). Commity: prefiksy `docs:`, `fix:`,
 `feat:`, `test:`, `ci:`. Żadnych danych klienta w repo (seriale, liczby sztuk, nazwy) — .gitignore blokuje
 `*.csv` i profile produkcyjne; to jest wymóg, nie sugestia.

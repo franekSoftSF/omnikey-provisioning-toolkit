@@ -10,6 +10,7 @@ $script:CliCommandParams = @{
     batch    = @('ProfilePath', 'LogCsv', 'InventoryMap', 'PollMs', 'StableSec', 'RebootWait', 'VerifyRetry')
     readers  = @()
     configure = @('NoReboot')
+    restore  = @('ProfilePath', 'NoReboot')
 }
 $script:CliModes = @{ get = 'Get'; set = 'Set'; verify = 'Verify'; export = 'Export'; testcard = 'TestCard' }
 
@@ -84,7 +85,7 @@ function Read-MenuSelection {
     Write-Host (T menuTitle) -ForegroundColor Cyan
     Write-Host (T menuItems)
     $choice = ([string](Read-Host (T menuChoice))).Trim()
-    $map = @{ '1' = 'get'; '2' = 'verify'; '3' = 'set'; '4' = 'export'; '5' = 'testcard'; '6' = 'batch'; '7' = 'readers'; '8' = 'configure' }
+    $map = @{ '1' = 'get'; '2' = 'verify'; '3' = 'set'; '4' = 'export'; '5' = 'testcard'; '6' = 'batch'; '7' = 'readers'; '8' = 'configure'; '9' = 'restore' }
     if ($choice -eq '0') { return $null }
     if (-not $map.ContainsKey($choice)) { return @{ Command = $null; Invalid = $choice } }
     $sel = @{ Command = $map[$choice]; ProfilePath = '' }

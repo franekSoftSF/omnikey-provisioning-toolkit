@@ -142,11 +142,38 @@ Save these settings as a profile file (path, Enter = do not save): .\profiles\my
 Write 1 change(s) to the reader now (Apply + reboot)? (y/N): y
 ```
 
+- The first question offers a starting point: `1` the reader's current settings or `2` **MIFARE + FIDO only**
+  (ISO 14443 A on with `mifarePreferred`, key cache off, EMD on; 14443 B, 15693, FeliCa and iCLASS off;
+  polling `iso14443a` only; bit rates and sleep settings unchanged). The preset is also a normal profile:
+  `OmnikeyToolkit\Presets\mifare-fido.json`.
+- **Enter** accepts the value in `[brackets]`, **`d`** leaves what the reader has now (they differ only
+  when a preset was chosen). Answering `n` to a technology skips its other questions and removes it from
+  the suggested polling order.
 - Answers: `y`/`n` (also `t`/`tak`/`nie`), numbers or names from the list shown, comma-separated lists.
 - Nothing is written until the last question; then **only the changed parameters** are written with
   the same Set path (`[OK]` lines, Apply, reboot). The saved file is a normal profile for `verify`,
   `set` and `batch`. The profile is validated before saving or writing.
 - On OMNIKEY 3121 only the contact slot is asked; choosing EMVCo skips the voltage question.
+
+### Backups and restore: `restore`
+
+**Every change made with `Omnikey.ps1` (`set`, `configure`, `restore`) first saves the reader's current
+settings** to `.\omnikey-backups\` (`<model>_<serial>_<date-time>.json`, an ordinary profile plus a
+`_backup` block; the folder is git-ignored). `CheckProfile5022.ps1` and the batch script keep their v1.0
+behaviour and write no backups.
+
+```powershell
+.\Omnikey.ps1 restore                                        # choose: 1 backup of this reader, 2 profile file, 3 factory defaults
+.\Omnikey.ps1 restore -ProfilePath .\omnikey-backups\OMNIKEY-5022_...json
+```
+
+- **Backup of this reader** lists the backups of the same model and serial number, newest first.
+- Before writing, `restore` shows what differs (`reader -> backup`) and asks for confirmation; only the
+  differing parameters are written, and the state before restoring is backed up too.
+- **Factory defaults** send HID's `RestoreFactoryDefaults` command and restart the reader. They reset
+  **all** reader settings, including ones this toolkit does not manage — a backup is saved first and the
+  command asks for confirmation. (OMNIKEY 3121 reports no serial number, so its backups are matched by
+  model only.)
 
 ## Single-reader tool: `CheckProfile5022.ps1`
 

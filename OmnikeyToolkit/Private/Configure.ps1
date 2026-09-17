@@ -165,7 +165,7 @@ function ConvertTo-AnswerProfile([hashtable]$answers, [string[]]$keys) {
     $p
 }
 
-function Invoke-ReaderConfigurator([string]$readerMatch, [bool]$interactive, [string]$lang, [bool]$noReboot) {
+function Invoke-ReaderConfigurator([string]$readerMatch, [bool]$interactive, [string]$lang, [bool]$noReboot, [string]$backupDir = "") {
     if ($lang) { Set-MessageLanguage $lang }
     $match = Resolve-SingleReader $readerMatch $interactive
     $all = Get-ReaderList                           # assign first: piping the ,@() list would pass it as one item
@@ -270,7 +270,7 @@ function Invoke-ReaderConfigurator([string]$readerMatch, [bool]$interactive, [st
     try {
         $delta | ConvertTo-Json -Depth 4 | Out-File $tmp -Encoding utf8
         Write-Host ""
-        [int](Invoke-OmnikeyTool -Mode Set -ProfilePath $tmp -Lang $lang -ReaderMatch ('^' + [regex]::Escape($reader) + '$') -NoReboot:$noReboot)
+        [int](Invoke-OmnikeyTool -Mode Set -ProfilePath $tmp -Lang $(if ($lang) { $lang } else { 'en' }) -ReaderMatch ('^' + [regex]::Escape($reader) + '$') -NoReboot:$noReboot -BackupDir $backupDir)
     }
     finally { Remove-Item $tmp -ErrorAction SilentlyContinue }
 }

@@ -15,7 +15,9 @@ function Invoke-OmnikeyTool {
         [int]$RebootWait = 10,
         [int]$CardTimeout = 30,
         [string]$OutProfile = ".\reader-profile.json",
-        [switch]$Loop
+        [switch]$Loop,
+        # Omnikey.ps1 only: save a backup of the reader here before Set writes (compatibility scripts: none)
+        [string]$BackupDir = ""
     )
     Set-MessageLanguage $Lang
 
@@ -48,6 +50,7 @@ function Invoke-OmnikeyTool {
             "Set" {
                 $ops = ConvertTo-OperationList $prof $model
                 if (-not $model.known) { throw (T modelNoWrite $model.product) }
+                if ($BackupDir) { [void](Save-ReaderBackup $card $model $id $reader $BackupDir) }
                 Write-Host (T setting)
                 $failed = $false
                 foreach ($op in $ops) {

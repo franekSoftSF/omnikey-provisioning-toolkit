@@ -12,6 +12,7 @@ function Format-ContactSetApdu([string]$sub, [string]$val) { "FF70076B0BA209A107
 
 $script:APDU_APPLY    = "FF70076B08A206A104A902800000"
 $script:APDU_REBOOT   = "FF70076B08A206A104A902830000"
+$script:APDU_FACTORY_DEFAULTS = "FF70076B08A206A104A902810000"   # ReaderConfigurationControl.RestoreFactoryDefaults
 $script:APDU_POLL_GET = "FF70076B0AA208A006A404A002890000"
 # reader capabilities (A0)
 $script:APDU_PRODUCT       = "FF70076B08A206A004A002820000"

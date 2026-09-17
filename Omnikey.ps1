@@ -12,6 +12,7 @@
     batch     batch provisioning station (USB hub, CSV audit trail)
     readers   list connected OMNIKEY readers, their model and what can be configured
     configure set the reader step by step: one question per parameter, then Apply
+    restore   bring back a backup (saved automatically before every write), a profile or factory defaults
   Without a command an interactive menu is shown; it returns to the menu after each action.
 
   Without -ReaderMatch the single connected OMNIKEY reader is used (batch: all OMNIKEY readers).
@@ -27,7 +28,7 @@
 #>
 param(
     [Parameter(Position = 0)]
-    [ValidateSet("get", "set", "verify", "export", "testcard", "batch", "readers", "configure")]
+    [ValidateSet("get", "set", "verify", "export", "testcard", "batch", "readers", "configure", "restore")]
     [string]$Command,
     [Alias("Profile")][string]$ProfilePath = "",
     [ValidateSet("en", "pl")][string]$Lang = "en",

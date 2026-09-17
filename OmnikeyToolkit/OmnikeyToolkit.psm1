@@ -15,6 +15,7 @@ $ComponentFiles = @(
     'Private/Batch.ps1'
     'Private/Cli.ps1'
     'Private/Configure.ps1'
+    'Private/Restore.ps1'
     'Public/Invoke-OmnikeyTool.ps1'
     'Public/Invoke-OmnikeyBatch.ps1'
     'Public/Invoke-OmnikeyCli.ps1'
