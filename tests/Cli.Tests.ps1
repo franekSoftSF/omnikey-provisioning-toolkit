@@ -265,13 +265,18 @@ Describe 'Invoke-OmnikeyCli (Omnikey.ps1)' {
     }
 
     It 'readers lists every OMNIKEY reader with model, firmware and what can be configured' {
+        $nameCrescendo = 'HID Global Crescendo NFC Reader 0'
+        $readerNames = @($nameCrescendo, $name3121, $name5022, $nameOther)
         $sims = @{ 1 = (New-Reader5022Sim); 2 = (New-Reader3121Sim) }
         Mock Invoke-NativeConnect { @{ rc = 0; card = [IntPtr]$(if ($reader -match '5022') { 1 } else { 2 }); proto = 0 } }
         Mock Disconnect-Card { }
         Mock Send-Escape { $s = $sims[[int]$card]; if ($s.ContainsKey($apdu)) { $s[$apdu] } else { '9E0202049000' } }
         $r = Invoke-Captured { Invoke-OmnikeyCli -Command readers }
         @($r.out) | Should -Be @(0)
+        Should -Invoke Invoke-NativeConnect -Times 0 -Exactly -ParameterFilter { $reader -notmatch 'OMNIKEY' } -Because 'no escape commands to non-OMNIKEY readers'
         $r.text | Should -BeExactly (@(
+            $nameCrescendo
+            '    not an OMNIKEY reader - no configuration commands are sent to it (none published by HID)'
             $name3121
             '    model: OMNIKEY 3121  fw: 1.6.0  serial: ?'
             '    contactless slot: no  contact slot: yes  configuration: supported'

@@ -42,14 +42,17 @@ function Resolve-SingleReader([string]$readerMatch) {
     '^' + [regex]::Escape($omnikey[0]) + '$'
 }
 
+# lists OMNIKEY readers and other HID Global readers; escape commands are sent ONLY to OMNIKEY
+# readers (other HID products, e.g. "Crescendo NFC Reader", have no public HID commands)
 function Show-ReaderList([string]$readerMatch) {
     Initialize-Context
     if (-not (Test-ContextReady)) { throw (T noService) }
-    $readers = Get-ReaderList $(if ($readerMatch) { $readerMatch } else { 'OMNIKEY' })
+    $readers = Get-ReaderList $(if ($readerMatch) { $readerMatch } else { 'OMNIKEY|^HID Global' })
     try {
         if ($readers.Count -eq 0) { Write-Host (T readersNone) -ForegroundColor Yellow; return }
         foreach ($r in $readers) {
             Write-Host $r -ForegroundColor Cyan
+            if ($r -notmatch 'OMNIKEY') { Write-Host (T readersNotProbed) -ForegroundColor DarkGray; continue }
             $info = Invoke-WithReader $r {
                 param($card, $unused)
                 $id = Read-Identity $card
