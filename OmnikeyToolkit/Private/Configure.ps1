@@ -5,32 +5,58 @@
 
 $script:ConfigQuestions = @(
     @{ key = 'iso14443a.enabled';           type = 'bool'; section = 'iso14443a'; field = 'enabled' }
-    @{ key = 'iso14443a.mifarePreferred';   type = 'bool'; section = 'iso14443a'; field = 'mifarePreferred' }
-    @{ key = 'iso14443a.mifareKeyCache';    type = 'bool'; section = 'iso14443a'; field = 'mifareKeyCache' }
-    @{ key = 'iso14443a.baud';              type = 'baud'; section = 'iso14443a' }
+    @{ key = 'iso14443a.mifarePreferred';   type = 'bool'; section = 'iso14443a'; field = 'mifarePreferred'; dependsOn = 'iso14443a.enabled' }
+    @{ key = 'iso14443a.mifareKeyCache';    type = 'bool'; section = 'iso14443a'; field = 'mifareKeyCache'; dependsOn = 'iso14443a.enabled' }
+    @{ key = 'iso14443a.baud';              type = 'baud'; section = 'iso14443a'; dependsOn = 'iso14443a.enabled' }
     @{ key = 'iso14443b.enabled';           type = 'bool'; section = 'iso14443b'; field = 'enabled' }
-    @{ key = 'iso14443b.baud';              type = 'baud'; section = 'iso14443b' }
+    @{ key = 'iso14443b.baud';              type = 'baud'; section = 'iso14443b'; dependsOn = 'iso14443b.enabled' }
     @{ key = 'iso15693.enabled';            type = 'bool'; section = 'iso15693';  field = 'enabled' }
     @{ key = 'felica.enabled';              type = 'bool'; section = 'felica';    field = 'enabled' }
-    @{ key = 'felica.baud';                 type = 'baud'; section = 'felica' }
+    @{ key = 'felica.baud';                 type = 'baud'; section = 'felica'; dependsOn = 'felica.enabled' }
     @{ key = 'iclass.enabled';              type = 'bool'; section = 'iclass';    field = 'enabled' }
     @{ key = 'emdSuppression';              type = 'bool'; field = 'emdSuppression' }
     @{ key = 'sleepModeCardDetection';      type = 'bool'; field = 'sleepModeCardDetection' }
     @{ key = 'sleepModePollingFrequency';   type = 'freq'; field = 'sleepModePollingFrequency' }
     @{ key = 'pollingSearchOrder';          type = 'poll'; field = 'pollingSearchOrder' }
     @{ key = 'contactSlot.enabled';         type = 'bool'; section = 'contactSlot'; field = 'enabled' }
-    @{ key = 'contactSlot.operatingMode';   type = 'mode'; section = 'contactSlot'; field = 'operatingMode' }
-    @{ key = 'contactSlot.voltageSequence'; type = 'volt'; section = 'contactSlot'; field = 'voltageSequence' }
+    @{ key = 'contactSlot.operatingMode';   type = 'mode'; section = 'contactSlot'; field = 'operatingMode'; dependsOn = 'contactSlot.enabled' }
+    @{ key = 'contactSlot.voltageSequence'; type = 'volt'; section = 'contactSlot'; field = 'voltageSequence'; dependsOn = 'contactSlot.enabled' }
 )
 
+# value of one question in a profile (reader snapshot or preset; dictionary or JSON object)
 function Get-ConfigCurrentValue($readerProfile, $q) {
-    $container = if ($q.section) { $readerProfile[$q.section] } else { $readerProfile }
+    if ($null -eq $readerProfile) { return $null }
+    $container = if ($q.section) { $readerProfile.($q.section) } else { $readerProfile }
     if ($null -eq $container) { return $null }
     if ($q.type -eq 'baud') {
-        if ($null -eq $container['rx'] -and $null -eq $container['tx']) { return $null }
-        return @{ rx = @($container['rx']); tx = @($container['tx']) }
+        if ($null -eq $container.rx -and $null -eq $container.tx) { return $null }
+        return @{ rx = @($container.rx | Where-Object { $null -ne $_ }); tx = @($container.tx | Where-Object { $null -ne $_ }) }
     }
-    $container[$q.field]
+    $container.($q.field)
+}
+
+# ---------- presets: ready-made starting points (OmnikeyToolkit/Presets/*.json, normal profiles) ----------
+$script:PresetRoot = Join-Path (Split-Path -Parent $PSScriptRoot) 'Presets'
+
+# presets usable with this model: every key in "_requires" must be supported
+function Get-ConfigPreset($model) {
+    if (-not (Test-Path $script:PresetRoot)) { return ,@() }
+    ,@(Get-ChildItem $script:PresetRoot -Filter *.json | Sort-Object Name | ForEach-Object {
+        $p = Get-Content $_.FullName -Raw | ConvertFrom-Json
+        $req = @($p._requires)
+        if (@($req | Where-Object { @($model.profileKeys) -notcontains $_ }).Count -eq 0) {
+            @{ id = $_.BaseName; profile = $p }
+        }
+    })
+}
+
+# pollingSearchOrder default: drop technologies the operator has just switched off
+function Get-PollingDefault($current, [hashtable]$answers) {
+    if ($null -eq $current) { return $null }
+    $enabledKey = @{ iso14443a = 'iso14443a.enabled'; iso14443b = 'iso14443b.enabled'; iso15693 = 'iso15693.enabled'; felica = 'felica.enabled'; iclass = 'iclass.enabled' }
+    $kept = @($current | Where-Object { -not ($enabledKey.ContainsKey($_) -and $answers[$enabledKey[$_]] -eq $false) })
+    if ($kept.Count -eq 0) { return ,@($current) }
+    ,$kept
 }
 
 function Format-ConfigList($v) {
@@ -157,36 +183,56 @@ function Invoke-ReaderConfigurator([string]$readerMatch, [bool]$interactive, [st
     if (-not $model.known) { throw (T modelNoWrite $model.product) }
     Write-Host (T cfgTitle $model.product) -ForegroundColor Cyan
 
+    # optional starting point: a preset fills the defaults, changes are still counted against the reader
+    $preset = $null
+    $presets = Get-ConfigPreset $model
+    if ($presets.Count -gt 0) {
+        $opts = "1 = " + (T presetCurrent)
+        for ($i = 0; $i -lt $presets.Count; $i++) { $opts += ", {0} = {1}" -f ($i + 2), (T ("preset." + $presets[$i].id)) }
+        Write-Host ""
+        $pick = ([string](Read-Host (T cfgPreset $opts))).Trim()
+        $n = 0
+        if ($pick -and $pick -ne '1') {
+            if (-not [int]::TryParse($pick, [ref]$n) -or $n -lt 2 -or $n -gt $presets.Count + 1) { throw (T menuInvalid $pick) }
+            $preset = $presets[$n - 2]
+            Write-Host (T cfgPresetChosen (T ("preset." + $preset.id))) -ForegroundColor Green
+        }
+    }
+
     $answers = @{}; $asked = @(); $changed = @()
     foreach ($q in $script:ConfigQuestions) {
         if (@($model.profileKeys) -notcontains $q.key) { continue }
+        if ($q.dependsOn -and $answers.ContainsKey($q.dependsOn) -and $answers[$q.dependsOn] -eq $false) { continue }   # technology switched off
         if ($q.type -eq 'volt' -and $model.emvcoVoltage -and $answers['contactSlot.operatingMode'] -eq 'emvco') { continue }   # fixed in EMVCo mode
         $asked += $q.key
         $cur = Get-ConfigCurrentValue $info.Profile $q
+        $def = $cur
+        if ($preset) { $pv = Get-ConfigCurrentValue $preset.profile $q; if ($null -ne $pv) { $def = $pv } }
+        if ($q.type -eq 'poll') { $def = Get-PollingDefault $def $answers }
         Write-Host ""
         Write-Host ("  " + (T ("q." + $q.key))) -ForegroundColor Cyan
         switch ($q.type) {
-            'bool' { $new = (Read-ConfigAnswer (T cfgAskBool $q.key (Format-ConfigValue 'bool' $cur)) 'bool' $cur $model $null).value }
+            'bool' { $new = (Read-ConfigAnswer (T cfgAskBool $q.key (Format-ConfigValue 'bool' $def)) 'bool' $def $model $null).value }
             'baud' {
                 $rates = $script:BaudRates[$q.section]
-                $curRx = $null; $curTx = $null
-                if ($cur) { $curRx = $cur.rx; $curTx = $cur.tx }   # no if-expression: it would unroll @() to $null
-                $rx = (Read-ConfigAnswer (T cfgAskRates "$($q.key) rx" (Format-ConfigList $curRx) ($rates -join ' ')) 'rates' $curRx $model $rates).value
-                $tx = (Read-ConfigAnswer (T cfgAskRates "$($q.key) tx" (Format-ConfigList $curTx) ($rates -join ' ')) 'rates' $curTx $model $rates).value
+                $defRx = $null; $defTx = $null
+                if ($def) { $defRx = $def.rx; $defTx = $def.tx }   # no if-expression: it would unroll @() to $null
+                $rx = (Read-ConfigAnswer (T cfgAskRates "$($q.key) rx" (Format-ConfigList $defRx) ($rates -join ' ')) 'rates' $defRx $model $rates).value
+                $tx = (Read-ConfigAnswer (T cfgAskRates "$($q.key) tx" (Format-ConfigList $defTx) ($rates -join ' ')) 'rates' $defTx $model $rates).value
                 $new = if ($null -eq $rx -and $null -eq $tx) { $null } else { @{ rx = @($rx | Where-Object { $null -ne $_ }); tx = @($tx | Where-Object { $null -ne $_ }) } }
             }
             'freq' {
                 $opts = (@(0..($script:FreqNames.Count - 1) | ForEach-Object { "{0}={1}" -f ($_ + 1), $script:FreqNames[$_] }) -join ' ')
-                $new = (Read-ConfigAnswer (T cfgAskChoice $q.key (Format-ConfigValue 'freq' $cur) $opts) 'freq' $cur $model $null).value
+                $new = (Read-ConfigAnswer (T cfgAskChoice $q.key (Format-ConfigValue 'freq' $def) $opts) 'freq' $def $model $null).value
             }
             'poll' {
                 $opts = (($script:PollCodes.Keys | Sort-Object) -join ' ')
-                $new = (Read-ConfigAnswer (T cfgAskList $q.key (Format-ConfigValue 'poll' $cur) $opts) 'poll' $cur $model $null).value
+                $new = (Read-ConfigAnswer (T cfgAskList $q.key (Format-ConfigValue 'poll' $def) $opts) 'poll' $def $model $null).value
             }
-            'mode' { $new = (Read-ConfigAnswer (T cfgAskChoice $q.key (Format-ConfigValue 'mode' $cur) "1=iso7816 2=emvco") 'mode' $cur $model $null).value }
+            'mode' { $new = (Read-ConfigAnswer (T cfgAskChoice $q.key (Format-ConfigValue 'mode' $def) "1=iso7816 2=emvco") 'mode' $def $model $null).value }
             'volt' {
                 $opts = "5V 3V 1.8V | auto"
-                $new = (Read-ConfigAnswer (T cfgAskList $q.key (Format-ConfigValue 'volt' $cur) $opts) 'volt' $cur $model $null).value
+                $new = (Read-ConfigAnswer (T cfgAskList $q.key (Format-ConfigValue 'volt' $def) $opts) 'volt' $def $model $null).value
             }
         }
         $answers[$q.key] = $new

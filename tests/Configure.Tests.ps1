@@ -59,6 +59,18 @@ Describe 'Configure questions' {
         (ConvertFrom-ConfigAnswer 'rates' '-' @(212) $m5022 @(212)).value.Count | Should -Be 0
     }
 
+    It 'the MIFARE + FIDO preset is a valid 5022 profile and is offered only to models that have every key' {
+        $preset = Get-Content (Join-Path $ModuleRoot 'Presets/mifare-fido.json') -Raw | ConvertFrom-Json
+        (ConvertTo-OperationList $preset $m5022).Count | Should -Be 9
+        @((Get-ConfigPreset $m5022) | ForEach-Object { $_.id }) | Should -Be @('mifare-fido')
+        (Get-ConfigPreset $m3121).Count | Should -Be 0
+        (Get-ConfigPreset (Resolve-ReaderModel @{ Product = 'OMNIKEY 5422' })).Count | Should -Be 0
+        foreach ($p in Get-ChildItem (Join-Path $ModuleRoot 'Presets') -Filter *.json) {
+            $script:MSG.en.ContainsKey("preset.$($p.BaseName)") | Should -BeTrue
+            $script:MSG.pl.ContainsKey("preset.$($p.BaseName)") | Should -BeTrue
+        }
+    }
+
     It 'formats values for the prompts and the change summary' {
         Format-ConfigValue 'baud' @{ rx = @(); tx = @(212, 424) } | Should -Be 'rx:- tx:212,424'
         Format-ConfigValue 'volt' 'auto' | Should -Be 'auto'
@@ -93,15 +105,16 @@ Describe 'Invoke-ReaderConfigurator' {
     }
 
     It 'OMNIKEY 5022: Enter on every question changes nothing and writes nothing' {
-        Initialize-AnswerQueue (@('') * 17 + @(''))                       # 14 parameters (3 baud = rx + tx) + save
+        Initialize-AnswerQueue (@('') * 18 + @(''))                       # preset + 14 parameters (3 baud = rx + tx) + save
         $r = Invoke-Captured { Invoke-ReaderConfigurator '5022' $false 'en' $false }
         @($r.out) | Should -Be @(0)
-        $prompts.Count | Should -Be 18
-        $prompts[0] | Should -Be 'iso14443a.enabled [True] (y/n)'
-        $prompts[3] | Should -Be 'iso14443a.baud rx kbps [212,424] (list of 212 424 848; - = none; 106 is always on)'
-        $prompts[10] | Should -Be 'felica.baud rx kbps [212] (list of 212 424; - = none; 106 is always on)'
-        $prompts[15] | Should -Match '^sleepModePollingFrequency \[0\.7Hz\] \(1=41Hz .*7=0\.7Hz'
-        $prompts[16] | Should -Match '^pollingSearchOrder \[iso14443a,iso14443b,iclass,felica,iso15693\]'
+        $prompts.Count | Should -Be 19
+        $prompts[0] | Should -Be 'Start from (1 = current reader settings, 2 = MIFARE + FIDO only (ISO 14443 A on, other technologies off); Enter = 1)'
+        $prompts[1] | Should -Be 'iso14443a.enabled [True] (y/n)'
+        $prompts[4] | Should -Be 'iso14443a.baud rx kbps [212,424] (list of 212 424 848; - = none; 106 is always on)'
+        $prompts[11] | Should -Be 'felica.baud rx kbps [212] (list of 212 424; - = none; 106 is always on)'
+        $prompts[16] | Should -Match '^sleepModePollingFrequency \[0\.7Hz\] \(1=41Hz .*7=0\.7Hz'
+        $prompts[17] | Should -Match '^pollingSearchOrder \[iso14443a,iso14443b,iclass,felica,iso15693\]'
         $r.text | Should -Match 'CONFIGURE OMNIKEY 5022'
         $r.text | Should -Match 'Present dual-interface cards as MIFARE Classic'
         $r.text | Should -Match 'No changes.'
@@ -109,10 +122,10 @@ Describe 'Invoke-ReaderConfigurator' {
     }
 
     It 'OMNIKEY 5022: writes only the changed parameters and saves the full profile' {
-        $answers = @('') * 17
-        $answers[1] = 'n'          # mifarePreferred
-        $answers[4] = '212'        # 14443A tx
-        $answers[15] = '1'         # sleep frequency 41Hz
+        $answers = @('') * 18      # [0] = preset question
+        $answers[2] = 'n'          # mifarePreferred
+        $answers[5] = '212'        # 14443A tx
+        $answers[16] = '1'         # sleep frequency 41Hz
         $saved = Join-Path $TestDrive 'configured.json'
         Initialize-AnswerQueue ($answers + @($saved, 'y'))
         $r = Invoke-Captured { Invoke-ReaderConfigurator '5022' $false 'en' $false }
@@ -132,7 +145,7 @@ Describe 'Invoke-ReaderConfigurator' {
     }
 
     It 'answering no to the last question writes nothing' {
-        $answers = @('') * 17; $answers[0] = 'n'
+        $answers = @('') * 18; $answers[2] = 'n'                        # mifarePreferred off
         Initialize-AnswerQueue ($answers + @('', 'n'))
         $r = Invoke-Captured { Invoke-ReaderConfigurator '5022' $false 'en' $false }
         @($r.out) | Should -Be @(0)
@@ -141,10 +154,38 @@ Describe 'Invoke-ReaderConfigurator' {
     }
 
     It 'removing all extra bit rates writes 106 kbps only' {
-        $answers = @('') * 17; $answers[3] = '-'; $answers[4] = '-'
+        $answers = @('') * 18; $answers[4] = '-'; $answers[5] = '-'
         Initialize-AnswerQueue ($answers + @('', 'y'))
         [void](Invoke-Captured { Invoke-ReaderConfigurator '5022' $false 'en' $false })
         @($sent) | Should -Be @("${ApduSetPrefix}A20381010000", $ApduApply, $ApduReboot)
+    }
+
+    It 'switching a technology off skips its follow-up questions and drops it from the polling default' {
+        # preset, 14443A (4 prompts incl. rx/tx), 14443B off, 15693, FeliCa off, iCLASS, EMD, sleep, freq, polling, save, apply
+        Initialize-AnswerQueue @('', '', '', '', '', '', 'n', '', 'n', '', '', '', '', '', '', 'y')
+        [void](Invoke-Captured { Invoke-ReaderConfigurator '5022' $false 'en' $false })
+        $script:answerQueue.Count | Should -Be 0
+        @($prompts | Where-Object { $_ -like 'iso14443b.baud*' -or $_ -like 'felica.baud*' }) | Should -BeNullOrEmpty
+        @($prompts | Where-Object { $_ -like 'pollingSearchOrder*' }) | Should -Be @('pollingSearchOrder [iso14443a,iclass,iso15693] (comma-separated: felica iclass iso14443a iso14443b iso15693 none)')
+        @($sent) | Should -Be @("${ApduSetPrefix}A30380010000", "${ApduSetPrefix}A50380010000", "${ApduPollSet}020401000000", $ApduApply, $ApduReboot)
+    }
+
+    It 'the MIFARE + FIDO preset fills the answers; Enter through writes only what differs from the reader' {
+        Initialize-AnswerQueue (@('2') + @('') * 13 + @('', 'y'))    # preset 2, 13 remaining questions, save, apply
+        $r = Invoke-Captured { Invoke-ReaderConfigurator '5022' $false 'en' $false }
+        $script:answerQueue.Count | Should -Be 0
+        $r.text | Should -Match 'Starting from: MIFARE \+ FIDO only'
+        $r.text | Should -Match ([regex]::Escape('iso14443b.enabled: True -> False'))
+        $r.text | Should -Match ([regex]::Escape('pollingSearchOrder: iso14443a,iso14443b,iclass,felica,iso15693 -> iso14443a'))
+        @($sent) | Should -Be @(
+            "${ApduSetPrefix}A30380010000", "${ApduSetPrefix}A40380010000", "${ApduSetPrefix}A50380010000",
+            "${ApduSetPrefix}A60383010000", "${ApduPollSet}020000000000", $ApduApply, $ApduReboot)
+    }
+
+    It 'an unknown preset number stops before any question' {
+        Initialize-AnswerQueue @('9')
+        { Invoke-ReaderConfigurator '5022' $false 'en' $false 6>$null } | Should -Throw -ExpectedMessage "Unknown choice: '9'"
+        $sent.Count | Should -Be 0
     }
 
     It 'OMNIKEY 3121: asks only contact slot questions; EMVCo skips the voltage question' {
@@ -166,7 +207,7 @@ Describe 'Invoke-ReaderConfigurator' {
     }
 
     It 'three invalid answers stop without writing' {
-        Initialize-AnswerQueue @('maybe', 'perhaps', 'dunno')
+        Initialize-AnswerQueue @('', 'maybe', 'perhaps', 'dunno')      # preset: current settings, then 3 invalid answers
         { Invoke-ReaderConfigurator '5022' $false 'en' $false 6>$null } | Should -Throw -ExpectedMessage "Unknown choice: 'dunno'"
         $sent.Count | Should -Be 0
     }
