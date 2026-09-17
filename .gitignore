@@ -10,3 +10,6 @@ profiles/*-bank*.json
 # OS noise
 Thumbs.db
 .DS_Store
+
+# automatic backups of reader settings (contain serial numbers)
+omnikey-backups/
