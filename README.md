@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/franekSoftSF/omnikey-provisioning-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/franekSoftSF/omnikey-provisioning-toolkit/actions/workflows/ci.yml)
 
-**Scripted configuration, audit and mass provisioning of HID OMNIKEY® smart card readers** (currently: **OMNIKEY 5022**; protocol-compatible with the AViatoR family — 5122/5422 contactless slot) —
+**Scripted configuration, audit and mass provisioning of HID OMNIKEY® smart card readers** (currently: **OMNIKEY 5022** contactless and **OMNIKEY 3121** contact readers; protocol-compatible with the AViatoR family — 5122/5422) —
 no Workbench GUI required. Built around a real deployment across a large fleet for a banking-sector customer,
 with the key use case of enabling **MIFARE Classic emulation support (`mifarePreferred`)** on
 dual-interface cards.
@@ -19,8 +19,12 @@ alone — no smart card needed, except for the card test mode.
 
 ## Features
 
-- **Get** — dump the full contactless configuration of a connected reader
-- **Set** — apply a JSON profile (write → Apply → reader reboot)
+- **One entry point** — `.\Omnikey.ps1 <command>` for everything below, or an interactive menu
+  when started without a command; the original scripts keep working unchanged
+- **Reader model detection** — the reader reports its model; the toolkit only writes parameters
+  that model supports and never writes to unknown models (`readers` lists what is connected)
+- **Get** — dump the full configuration of a connected reader (contactless slot and/or contact slot)
+- **Set** — apply a JSON profile (write → Apply → reader reboot); the profile is validated first
 - **Verify** — audit the reader against a profile; exit code for pipelines (`0`/`2`)
 - **Export** — snapshot the current reader configuration as a Batch-ready profile
   ("golden unit" workflow)
@@ -39,8 +43,13 @@ omnikey-provisioning-toolkit/
 ├── README.md
 ├── LICENSE                          # MIT
 ├── .gitignore                       # keeps CSV logs & customer profiles out of git
-├── CheckProfile5022.ps1             # single-reader tool: Get/Set/Verify/Export/TestCard
-├── Batch-Omnikey5022-Provision.ps1  # mass provisioning station
+├── Omnikey.ps1                      # one entry point: get/set/verify/export/testcard/batch/readers
+├── CheckProfile5022.ps1             # single-reader tool (compatibility wrapper, same CLI as v1.0)
+├── Batch-Omnikey5022-Provision.ps1  # mass provisioning station (compatibility wrapper)
+├── OmnikeyToolkit/                  # PowerShell module with the implementation
+│   ├── OmnikeyToolkit.psd1 / .psm1
+│   ├── Private/                     # transport, APDUs, models, profiles, engine, cards, batch
+│   └── Public/                      # Invoke-OmnikeyCli / -Tool / -Batch
 ├── profiles/
 │   └── example-profile.json
 └── tests/                           # Pester 5 suite (no hardware needed)
@@ -50,8 +59,15 @@ omnikey-provisioning-toolkit/
 
 - Windows 10/11, PowerShell 5.1+ (also works on PowerShell 7)
 - Smart Card service (`SCardSvr`)
-- Reader: HID OMNIKEY **5022** (the protocol layer matches the AViatoR family — 5122/5422
-  contactless slot — but only 5022 was tested at scale)
+- A supported reader (the model is detected from what the reader reports):
+
+  | Model | What the toolkit configures | Status |
+  |---|---|---|
+  | OMNIKEY **5022** | contactless slot (all profile keys except `contactSlot`) | verified on hardware, used at scale |
+  | OMNIKEY **3121** | contact slot (`contactSlot`) | verified on hardware (enumerates as "OMNIKEY 3x21"; no serial number) |
+  | OMNIKEY 5422 / 5122 | contactless slot without 15693 / FeliCa / polling order, plus contact slot | per HID's sample code, **not yet verified on hardware** |
+  | any other reader | nothing — `get`/`verify` read only | configuration changes are blocked |
+
 - Driver, one of:
   - **HID OMNIKEY CCID Driver** v2.3.4+ (recommended; escape commands work out of the box) —
     [hidglobal.com/drivers](https://www.hidglobal.com/drivers); for mass rollout deploy the INF via
@@ -63,14 +79,45 @@ First run on a fresh machine:
 
 ```powershell
 Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
-Unblock-File .\CheckProfile5022.ps1, .\Batch-Omnikey5022-Provision.ps1
+Get-ChildItem -Recurse -File | Unblock-File      # in the unpacked folder: scripts AND OmnikeyToolkit\
 ```
 
 Close Workbench before using the tools — it holds the reader and DIRECT connect will fail.
 
 ---
 
+## One entry point: `Omnikey.ps1`
+
+```powershell
+.\Omnikey.ps1 readers                                            # what is connected and what can be configured
+.\Omnikey.ps1 get                                                # dump configuration
+.\Omnikey.ps1 export   -OutProfile .\my-profile.json             # reader -> profile JSON
+.\Omnikey.ps1 set      -ProfilePath .\my-profile.json            # profile -> reader (+reboot)
+.\Omnikey.ps1 verify   -ProfilePath .\my-profile.json            # audit, exit 0=PASS 2=FAIL
+.\Omnikey.ps1 testcard [-Loop]                                   # card test
+.\Omnikey.ps1 batch    -ProfilePath .\my-profile.json -LogCsv .\prov.csv
+.\Omnikey.ps1                                                    # interactive menu
+```
+
+```
+HID Global OMNIKEY 3x21 Smart Card Reader 0
+    model: OMNIKEY 3121  fw: 1.6.0  serial: ?
+    contactless slot: no  contact slot: yes  configuration: supported
+HID Global OMNIKEY 5022 Smart Card Reader 0
+    model: OMNIKEY 5022  fw: 2.0.0  serial: EXAMPLE0001
+    contactless slot: yes  contact slot: no  configuration: supported
+```
+
+- Without `-ReaderMatch` the single connected OMNIKEY reader is used; with several readers the
+  command stops and lists them. `-ReaderMatch` takes a regex on the PC/SC reader name **or a model
+  number** (`-ReaderMatch 3121` finds "OMNIKEY 3x21"). `batch` uses all OMNIKEY readers by default.
+- Parameters are the same as in the scripts below (`-ProfilePath` also accepts `-Profile`);
+  a parameter that does not belong to the command (e.g. `get -Loop`) is an error.
+- `-Lang pl` for Polish messages, exit codes as in [Exit codes](#exit-codes).
+
 ## Single-reader tool: `CheckProfile5022.ps1`
+
+Kept with exactly the v1.0 command line (`Omnikey.ps1` runs the same code):
 
 ```powershell
 .\CheckProfile5022.ps1 -Mode Get                                        # dump configuration
@@ -115,6 +162,9 @@ raw PC/SC code. Note: PC/SC cannot distinguish *native* Classic from a *dual-int
 to tell them apart, test the same card with `mifarePreferred` off (emulated cards flip to CPU,
 native Classic stays Classic).
 
+On a contact reader (OMNIKEY 3121) `TestCard` shows the ATR and protocol of the inserted card
+(`Card identified as: contact smart card (ISO 7816), protocol T=1`) and exits `0` when the card answers.
+
 ---
 
 ## Profile reference
@@ -122,6 +172,10 @@ native Classic stays Classic).
 A profile is a JSON file. **Every key is optional** — only listed keys are set/verified,
 everything else on the reader is left untouched. `Export` produces a full snapshot; delete keys
 you don't want to enforce.
+
+Profiles are **validated before anything is sent**: unknown keys (typos such as `mifarePrefered`),
+non-boolean values, unsupported bit rates or voltages and keys the connected model does not support
+stop with a clear message and exit code `1`. Keys starting with `_` are ignored (use them for notes).
 
 ```json
 {
@@ -157,6 +211,15 @@ you don't want to enforce.
 | `sleepModeCardDetection` | Sleep Mode Card Detection | `true`/`false` | Card detection during low-power sleep. |
 | `sleepModePollingFrequency` | Sleep Mode Polling Frequency | `41Hz` `20Hz` `10Hz` `5Hz` `2.5Hz` `1.3Hz` `0.7Hz` `0.3Hz` `0.15Hz` `0.08Hz` | Sleep polling rate (Workbench shows e.g. `0.7Hz (1.4s)`). |
 | `pollingSearchOrder` | Polling Search Order | up to 5 of `iso14443a` `iso14443b` `iso15693` `iclass` `felica` `none` | Technology search order; put the production card technology first. |
+| `contactSlot.enabled` | Contact Slot → Enabled | `true`/`false` | Contact (ISO 7816) slot on/off — readers with a contact slot only. |
+| `contactSlot.operatingMode` | Operating Mode | `iso7816`, `emvco` | Contact card handling: ISO 7816 (ID, signature, PIV cards) or EMVCo (payment). |
+| `contactSlot.voltageSequence` | Voltage Sequence | `"auto"` or 1–3 of `"5V"` `"3V"` `"1.8V"` in order | Order of card supply voltages tried at power-up. OMNIKEY 3121 does not keep `"auto"` (it reports `5V` after reboot) — list the voltages. |
+
+Contact reader example (OMNIKEY 3121):
+
+```json
+{ "contactSlot": { "enabled": true, "operatingMode": "iso7816", "voltageSequence": ["5V", "3V", "1.8V"] } }
+```
 
 <details>
 <summary><b>Under the hood: APDU map</b></summary>
@@ -173,11 +236,15 @@ with IOCTL `0x3136B0` in PC/SC **DIRECT** mode (no card required):
 | iCLASS enable | `A6` | `83` |
 | EMD / polling order / sleep freq / sleep detection | `A0` | `87` / `89` / `8D` / `8E` |
 | Serial / product name / firmware | `A0` | `92` / `82` / `85` |
+| Contact / contactless slot count (model detection) | `A0` | `8B` / `8C` |
+| Contact slot: voltage sequence / operating mode / enable (container `A3`) | `A0` | `82` / `83` / `85` |
 | Apply settings / reboot device | `A9` | `80` / `83` |
 
 Baud byte: `rxNibble << 4 | txNibble`; bits `212=1`, `424=2`, `848=4` (106 implicit).
+Voltage sequence byte: `first | second << 2 | third << 4`; `5V=3`, `3V=2`, `1.8V=1`, `0x00` = auto.
 Get responses: `BD 03 <sub> 01 <val> 90 00`; polling order: `BD 07 89 05 <5B> 90 00`.
-Reference: `ContactlessSlotConfiguration.cs`, `ReaderCapabilities.cs` in HID's sample repo.
+Reference: `ContactlessSlotConfiguration.cs`, `ContactSlotConfiguration.cs`, `ReaderCapabilities.cs`
+in HID's sample repo.
 </details>
 
 ---
@@ -196,6 +263,10 @@ Designed for an operator with a **powered** USB hub:
    already compliant? `PASS` without touching it → otherwise apply everything, `Apply`, reboot.
 3. Post-reboot verification is **matched by serial number** (USB indices may shuffle).
 4. Double beep = batch OK, low beep = at least one FAIL. Unplug, plug the next batch. `Ctrl+C` ends.
+
+A unit whose model does not support every profile key (or is unknown) is logged
+`FAIL;unsupported model: …` and left untouched. Batch mode needs a serial number to match units after
+reboot — OMNIKEY 3121 does not report one, so configure 3121 units one at a time with `set` / `verify`.
 
 ### CSV audit trail
 
@@ -258,15 +329,20 @@ roughly 200–300 units per hour of operator time on one station; physical packi
 | `Cannot connect in DIRECT mode` | Another app holds the reader — close **Workbench**. |
 | `SCardControl 0x80100016 / escape errors` | Microsoft CCID driver without escape enabled → install the HID driver or set `EscapeCommandEnable=1` and replug. |
 | Unit configured but reported FAIL after reboot | Fixed in current versions: Windows stops the Smart Card service when the last reader disappears (`SCARD_E_NO_SERVICE`); the tools now auto-recover the PC/SC context. If it persists: powered hub, `-RebootWait 15`. |
-| `Add-Type: type WinSCard already exists` | Fixed: each script uses its own namespace (`OmniTool`/`OmniBatch`) with an idempotent guard. If you modify the P/Invoke signatures, **rename the namespace** — .NET types cannot be unloaded from a live session. |
+| `Add-Type: type WinSCard already exists` | Fixed: the P/Invoke type lives in its own namespace (`OmniTool`) with an idempotent guard. If you modify the P/Invoke signatures, **rename the namespace** — .NET types cannot be unloaded from a live session. |
+| `... is not digitally signed` / `cannot be loaded` for a file in `OmnikeyToolkit\` | The module files of a downloaded ZIP are blocked like the scripts: run `Get-ChildItem -Recurse -File \| Unblock-File` in the unpacked folder. |
+| `<key>: not supported by OMNIKEY 3121` | The profile contains keys for a slot this model does not have (e.g. contactless keys on a contact reader). Use a profile for that model — `export` one from a configured unit. |
+| `Unknown profile key '...'` | Typo in the profile (keys are checked since v1.2) — the message lists the allowed keys. |
+| `Several readers found` | `Omnikey.ps1` does not guess: add `-ReaderMatch 5022` / `-ReaderMatch 3121`. |
 | Card shows as CPU although it "is MIFARE" | Dual-interface card + `mifarePreferred` disabled → enable and retest (`TestCard` prints this hint itself). |
 | Auth test fails on customer cards | Expected: production cards don't use transport keys; it does not indicate a misconfigured reader. |
 
 ## Testing
 
 The `tests/` folder holds a [Pester 5](https://pester.dev) suite that runs **without a reader,
-a card or the Smart Card service**: every reader exchange goes through a mocked `Send-Escape`,
-and the expected APDUs are written out by hand from the protocol notes, not taken from the scripts.
+a card or the Smart Card service**: every PC/SC call is mocked, readers are simulated from responses
+recorded on a real OMNIKEY 5022 and 3121, and the expected APDUs are written out by hand from the
+protocol notes, not taken from the module.
 
 ```powershell
 Install-Module Pester -MinimumVersion 5.5.0 -MaximumVersion 5.99.99 -Scope CurrentUser -SkipPublisherCheck
@@ -275,30 +351,38 @@ Invoke-Pester ./tests -Output Detailed
 
 Works on Windows PowerShell 5.1 and PowerShell 7. What is covered:
 
-- **Profile → operations** (`Build-Ops`): every key type (bool / baud / sleep frequency /
-  polling order), partial profiles, errors for unknown frequency or technology names
-- **Parsers**: `Parse-Bool`, `Parse-Byte`, `Parse-Ascii` (serial / product name TLV), firmware,
-  baud-byte encoding (106 kbps implicit), card-type classification from the ATR (`TestCard`)
-- **Op engine**: the exact SET APDUs for `profiles/example-profile.json`, checks never write
-- **Regressions** for the pitfalls below: ops stay data-only (no closures); `Apply-All`
-  returns `@{errors=@()}` on success, never `$null`, and sends no Apply/Reboot after a failed write
-- **Repo guards**: CLI parameters unchanged, P/Invoke signatures tied to their namespace,
-  EN/PL message keys in sync, LF line endings
+- **Profiles** (`Profile.Tests`): every key type, partial profiles, validation errors (EN/PL),
+  which keys each reader model accepts
+- **APDUs and parsers** (`Apdu.Tests`): builders checked against HID's sample strings, response
+  parsers, baud and voltage encodings, card-type classification from the ATR
+- **Engine** (`Engine.Tests`): exact SET APDUs for a profile, checks never write, Get/Export on a
+  simulated 5022 and 3121, model detection, PC/SC context recovery after `SCARD_E_NO_SERVICE`
+- **Console output** (`Cli.Tests`): Get / Verify / Set text compared with output recorded on
+  hardware (`tests/fixtures`, serials masked), exit codes, write safety, `Omnikey.ps1` commands and menu
+- **Batch** (`Batch.Tests`): unit decisions, verification matched by serial after USB reshuffle,
+  diagnostics, CSV lines, resume state
+- **Regressions** for the pitfalls below; **module wiring** (`Module.Tests`); **repo guards**
+  (`Repo.Tests`): CLI parameters unchanged, thin wrappers, P/Invoke signatures tied to their
+  namespace, EN/PL message keys in sync, LF line endings, release content
 
 GitHub Actions runs PSScriptAnalyzer (fails on errors, reports warnings) and this suite on
 Windows PowerShell 5.1 and PowerShell 7 for every push and pull request. Pushing a `vX.Y.Z` tag
 builds the runtime-only ZIP and `SHA256SUMS.txt` and publishes the release
 (notes from `docs/release-notes/<tag>.md`; tags with a suffix such as `-rc1` become pre-releases).
 
-Both scripts can be dot-sourced (`. .\CheckProfile5022.ps1`) to load their functions without
-touching PC/SC. Run them as usual (`.\CheckProfile5022.ps1 …`) for real work.
-
 ## Development notes
 
+- All logic lives in the `OmnikeyToolkit` module; `Omnikey.ps1`, `CheckProfile5022.ps1` and
+  `Batch-Omnikey5022-Provision.ps1` only import it and call `Invoke-OmnikeyCli` / `-Tool` / `-Batch`.
+  Components are plain `.ps1` files listed in `OmnikeyToolkit.psm1`; only `Private/Transport.ps1`
+  calls winscard, behind small `Invoke-Native*` functions that tests mock.
+- Reader models are data in `Private/Models.ps1` (product name, profile keys, verified flag).
 - PowerShell pitfalls this codebase already paid for — keep them in mind when contributing:
-  script functions are **not visible inside `GetNewClosure()` scriptblocks** (ops engine is
-  data-only for this reason), and **empty arrays unroll to `$null`** across function boundaries
-  (multi-value results are returned as hashtables).
+  script functions are **not visible inside `GetNewClosure()` scriptblocks**, and a scriptblock
+  created **outside** the module cannot call the module's private functions (the ops engine is
+  data-only and every scriptblock used by the batch station is defined inside the module);
+  **empty arrays unroll to `$null`** across function boundaries (multi-value results are
+  returned as hashtables).
 - Windows-only (winscard P/Invoke). A Linux port would target `pcscd` + pyscard —
   all APDUs in this README apply unchanged.
 

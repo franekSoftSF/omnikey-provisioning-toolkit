@@ -13,12 +13,26 @@ prezentowane jako Classic zamiast CPU). Publicznie NIE podajemy liczby sztuk ani
 ("a large fleet", "banking-sector customer").
 
 ## Komponenty
-- `CheckProfile5022.ps1` — narzędzie pojedynczej sztuki. Tryby:
+Od v1.2 cała logika jest w module `OmnikeyToolkit/` (psd1 + psm1; komponenty = pliki .ps1 w
+kolejności z `$ComponentFiles` w psm1: Messages, Native, Transport, Apdu, Models, Profile, Engine,
+Card, Batch, Cli + Public: `Invoke-OmnikeyCli`, `Invoke-OmnikeyTool`, `Invoke-OmnikeyBatch`).
+Tylko `Private/Transport.ps1` woła winscard (za funkcjami `Invoke-Native*` — mockowalne).
+Skrypty w roocie to cienkie wrappery (param → Import-Module -Force → funkcja → `exit $code`;
+pilnuje tego tests/Repo.Tests.ps1):
+- `Omnikey.ps1` — jeden punkt wejścia: `get|set|verify|export|testcard|batch|readers`, bez
+  komendy = menu. Bez `-ReaderMatch` bierze jedyny czytnik OMNIKEY (kilka ⇒ błąd z listą);
+  `-ReaderMatch <model>` (np. 3121) mapuje na nazwę PC/SC z rejestru. Parametr spoza komendy = błąd.
+- `Private/Models.ps1` — rejestr modeli (dane): product name z A0 82 → klucze profilu, `verified`,
+  `voltageAuto`. 5022 (contactless, verified), 3121 (contact, verified), 5422/5122 (wg OK5422.cs,
+  NIEzweryfikowane). Nieznany model: tylko odczyt, zapis zablokowany (Set/Batch).
+- Walidacja profilu (Profile.ps1): nieznane klucze (poza `_*`), typy, baud, napięcia, klucze
+  nieobsługiwane przez model ⇒ throw z komunikatem EN/PL przed jakimkolwiek zapisem.
+- `CheckProfile5022.ps1` — narzędzie pojedynczej sztuki (wrapper, CLI z v1.0). Tryby:
   `Get` (dump), `Set -Profile` (zapis + Apply + reboot; `-NoReboot`), `Verify -Profile`
   (audyt, exit 0/2), `Export -OutProfile` (snapshot czytnika → profil JSON zgodny z Batch),
   `TestCard` (ATR/UID, identyfikacja typu karty, werdykt MIFARE Classic; `-Loop` = stos kart,
   beepy, podsumowanie). Wspólne: `-Lang en|pl`, `-ReaderMatch` (regex, default "5022").
-- `Batch-Omnikey5022-Provision.ps1` (v9) — stacja wsadowa na zasilanym hubie USB:
+- `Batch-Omnikey5022-Provision.ps1` (v10, wrapper) — stacja wsadowa na zasilanym hubie USB:
   auto-detekcja partii (liczba czytników stabilna `-StableSec`), pełny Check→Apply→Reboot→
   Verify per sztuka, dopasowanie po NUMERZE SERYJNYM (indeksy USB się tasują),
   CSV: `timestamp;serial;product_name;firmware;inventory_number;result;detail`
@@ -48,34 +62,58 @@ APDU (TLV HID AViatoR):
 - Karty (TestCard): pseudo-ATR PC/SC part 3, RID `A0 00 00 03 06`; kody: 0001/0002 Classic
   1K/4K, 0026 Mini, 0036/0037 Plus SL1 (=Classic verdict YES), 0038/0039 Plus SL2,
   0003/003A UL/UL-C, 0030 Topaz, 000C FeliCa. UID: `FFCA000000`.
+- Capabilities (A0, ReaderCapabilities.cs): platform 83 (`AViatoR`), contact slots 8B,
+  contactless slots 8C, fw label 96.
+- Gniazdo stykowe (ContactSlotConfiguration.cs), kontener A3: GET `FF70076B0AA208A006A304A002 <SS> 0000`,
+  SET `FF70076B0BA209A107A305A003 <SS> 01 <val> 00`; SS: 82 voltage sequence
+  (`first | second<<2 | third<<4`, 5V=3 3V=2 1.8V=1, 00=auto), 83 operating mode (00 ISO7816,
+  01 EMVCo), 85 enable. Na 5022 te GET dają `9E0200039000`.
+
+Zweryfikowane na sprzęcie 2026-09-17:
+- OMNIKEY 5022 (fw 2.0.0): product `OMNIKEY 5022`, 0 contact / 1 contactless slot. Wyjście
+  Get/Verify/Set modułu = v1.0 (fixtures w tests/fixtures, serial zamaskowany).
+- OMNIKEY 3121 (fw 1.6.0, USB 076B:3031, nazwa PC/SC "HID Global OMNIKEY 3x21 Smart Card Reader 0"):
+  product `OMNIKEY 3121`, platform AViatoR, 1 contact / 0 contactless slot, **serial pusty**
+  (`BD0292009000`; atrybut PC/SC też "?"). Contact slot GET/SET + Apply + Reboot działa
+  (EMVCo, sekwencja 1.8V,3V,5V = 0x39 i przywrócenie 0x1B zweryfikowane). `voltageSequence "auto"`
+  przyjęte (9000), ale po reboocie czytnik raportuje `03` (tylko 5V) ⇒ w rejestrze `voltageAuto=$false`.
+  Contactless GET na 3121 zwracają częściowo błędy `9E02...`, częściowo przypadkowe wartości —
+  dlatego decyduje rejestr modeli, nie odpowiedzi czytnika.
 
 ## Twarde lekcje (naruszenie któregoś = regresja, którą już raz naprawialiśmy)
 1. PowerShell closures (`GetNewClosure()`) NIE widzą funkcji skryptu → silnik operacji jest
-   DANOWY: `Build-Ops` produkuje hashtabele `{kind: bool|baud|freq|poll, ...}`, wykonują je
-   `Invoke-OpApply`/`Invoke-OpCheck`. Nie wracać do scriptblocków.
+   DANOWY: `ConvertTo-OperationList` (dawniej `Build-Ops`) produkuje hashtabele
+   `{kind: bool|baud|freq|poll|mode|volt, ...}`, wykonują je `Invoke-OpApply`/`Invoke-OpCheck`.
+   Nie wracać do scriptblocków. W module dodatkowo: scriptblock utworzony POZA modułem nie widzi
+   prywatnych funkcji modułu → bloki dla `Invoke-WithReader` definiujemy tylko wewnątrz modułu.
 2. Pusta tablica zwrócona z funkcji rozwija się do `$null` przez granice funkcji → wyniki
-   wielowartościowe ZAWSZE jako hashtable (np. `Apply-All` → `@{errors=@()}`);
-   listy zwracane jako `,@(...)` z jawnym `@(...)`.
+   wielowartościowe ZAWSZE jako hashtable (np. `Invoke-OpApplyAll`, dawniej `Apply-All` →
+   `@{errors=@()}`); listy zwracane jako `,@(...)` — i NIE owijać ich ponownie w `@(...)` przy
+   odbiorze (`@(Get-ReaderList)` = tablica z jedną tablicą w środku).
 3. Windows zatrzymuje SCardSvr, gdy znika ostatni czytnik (reboot jedynej sztuki!) →
-   `SCARD_E_NO_SERVICE 0x8010001D` unieważnia kontekst; wzorzec Ensure-/Reset-Context
-   z auto-odtwarzaniem w Get-Readers/With-Reader jest obowiązkowy.
-4. `Add-Type` nie redefiniuje typów w sesji → każdy skrypt ma własny namespace C#
-   (`OmniTool`, `OmniBatch`) z guardem `-as [type]`. **Zmiana sygnatur P/Invoke ⇒ zmiana
-   nazwy namespace** (typów .NET nie da się wyładować).
+   `SCARD_E_NO_SERVICE 0x8010001D` unieważnia kontekst; wzorzec Initialize-/Reset-Context
+   z auto-odtwarzaniem w `Get-ReaderList`/`Invoke-WithReader` (Transport.ps1) jest obowiązkowy.
+4. `Add-Type` nie redefiniuje typów w sesji → namespace C# z guardem `-as [type]`. Moduł używa
+   `OmniTool` (sygnatury bajt w bajt jak w v1.0 CheckProfile5022.ps1); `OmniBatch` wycofany,
+   nazwa zarezerwowana; historia hashy: `$PInvokeHistory` w tests/Repo.Tests.ps1.
+   **Zmiana sygnatur P/Invoke ⇒ zmiana nazwy namespace** (typów .NET nie da się wyładować).
 5. Sterowniki: HID OMNIKEY CCID (v2.3.4+) = escape działa od razu; Microsoft CCID wymaga
    `EscapeCommandEnable=1` + replug. Workbench otwarty = DIRECT connect fail.
 6. Repo: LF wszędzie (`.gitattributes`: `* text=auto eol=lf`), i18n przez słownik `$MSG.en/.pl`
-   + `T key args`, exit codes 0/1/2, CSV `;`-separated UTF-8.
+   + `T key args` (Private/Messages.ps1), exit codes 0/1/2, CSV `;`-separated UTF-8.
+   W stringach PowerShell cudzysłów to `""` albo backtick — NIE `\"`.
 
 ## Stan i proces release
-v1.0.0 opublikowane. Release = ZIP runtime-only (`CheckProfile5022.ps1`, Batch, profiles/,
-README, LICENSE — bez .gitattributes/.gitignore/docs) + `SHA256SUMS.txt`;
+v1.0.0 opublikowane, v1.1.0-rc1 prerelease. Release = ZIP runtime-only (`Omnikey.ps1`,
+`CheckProfile5022.ps1`, Batch, `OmnikeyToolkit/`, profiles/, README, LICENSE — bez
+.gitattributes/.gitignore/docs/tests) + `SHA256SUMS.txt`;
 `gh release create vX.Y.Z <zip> SHA256SUMS.txt --title "..." --notes-file release-notes.md`
 (jedna linia, notes zawsze z pliku). Nazwa ZIP i katalogu w środku = `<repo>-vX.Y.Z`.
 Od v1.1.0 automatycznie: push taga `v*` → `.github/workflows/release.yml` (najpierw CI) buduje
 ZIP + SHA256SUMS i robi `gh release create`. Notes: `docs/release-notes/<tag>.md` albo wersji
 bazowej (`v1.1.0-rc1` → `v1.1.0.md`), pierwszy nagłówek `# ` = tytuł; tag z sufiksem = prerelease.
-Lista plików ZIP: `RELEASE_FILES` w release.yml (zmienić przy refaktorze na moduły).
+Lista plików ZIP: `RELEASE_FILES` w release.yml (pilnuje test w Repo.Tests.ps1). Release sprawdza,
+że `ModuleVersion` w OmnikeyToolkit.psd1 = wersja z taga bez sufiksu.
 Screenshot README: `docs/img/CheckProfile5022.png` (seriale zamaskowane; obowiązuje
 dla każdego przyszłego obrazka).
 
@@ -83,11 +121,12 @@ dla każdego przyszłego obrazka).
 1. [x] Testy Pester (`tests/`, Pester 5, PS 5.1 + 7; skipped = walidacja do zrobienia w 3): `Build-Ops` (profil→ops), parsery (`Parse-Bool/Byte/Ascii`, baud, ATR),
    regresje na lekcje 1–2. Mockować Send-Escape. Testy charakteryzacyjne — siatka pod refaktor (3).
 2. [x] GitHub Actions (`ci.yml`, `release.yml`): PSScriptAnalyzer na push/PR + workflow release-on-tag (ZIP+SHA+release).
-3. [ ] Refaktor na moduły PowerShell (transport PC/SC, rejestr modeli, silnik profili, karty,
-   batch). `CheckProfile5022.ps1` i Batch zostają jako cienkie wrappery — CLI bez zmian.
-   Walidacja wartości profilu (bool/baud/poll) wchodzi tu, raz, w module.
-4. [ ] `-WhatIf`/dry-run w Set i Batch (sama faza check, zero zapisu) — w module, po refaktorze.
-5. [ ] Auto-detekcja modelu czytnika + OMNIKEY 5023 (EKSPERYMENTALNE do testu na sprzęcie).
+3. [x] Refaktor na moduły PowerShell (v1.2.0): transport PC/SC, rejestr modeli z auto-detekcją,
+   silnik profili, karty, batch; walidacja profilu; `Omnikey.ps1` + menu; OMNIKEY 3121 (contact
+   slot, zweryfikowane na sprzęcie). `CheckProfile5022.ps1` i Batch = cienkie wrappery, CLI bez zmian.
+4. [ ] `-WhatIf`/dry-run w Set i Batch (sama faza check, zero zapisu) — w module;
+   `Invoke-OpCheckAll` zwraca już `diff` (name/want/have).
+5. [ ] OMNIKEY 5023 w rejestrze modeli (EKSPERYMENTALNE do testu na sprzęcie; auto-detekcja jest).
    Wg `OK5023.cs` w repo HID: te same klasy konfiguracji co 5022, ale BEZ
    `sleepModePollingFrequency`/`sleepModeCardDetection`; ma Secure Processor (SAM secure session).
 6. [ ] Kreator profilu z kart: skan próbek kart klienta → minimalna konfiguracja (tylko potrzebne
@@ -95,6 +134,9 @@ dla każdego przyszłego obrazka).
    poza ATR — decyzja o źródle APDU (NXP) otwarta. Konfiguracja czytnika NIE daje "tylko
    odczytu" karty — to prawa dostępu na karcie + brak kluczy w czytniku.
 7. [ ] TestCard `-Loop`: opcjonalny CSV per karta (uid;type;verdict).
+7a. [ ] Batch dla czytników bez numeru seryjnego (OMNIKEY 3121): dziś FAIL `read error
+   (no-serial:OMNIKEY 3121)` — potrzebny tryb po jednej sztuce albo inna identyfikacja.
+7b. [ ] Weryfikacja 5422/5122 na sprzęcie (dziś wg OK5422.cs, oznaczone jako eksperymentalne).
 8. [ ] Wsparcie OMNIKEY 5x27 (5127/5427) — UWAGA: inny mechanizm (EEM web serwer/TFTP,
    192.168.63.99), osobny skrypt obok, nie rozszerzenie obecnych.
 9. [ ] Ewentualny port pyscard/Python (Linux) — APDU bez zmian.
