@@ -61,9 +61,9 @@ $script:MSG = @{
     menuChoice="Choice"; menuProfile="Profile file (JSON)"; menuInvalid="Unknown choice: '{0}'"
     menuReaders="Several readers are connected:"; menuReader="Reader number"
     # --- configure (questions) ---
-    cfgTitle="CONFIGURE {0} - answer each question, Enter keeps the current value"
+    cfgTitle="CONFIGURE {0} - Enter accepts the value in [brackets], d leaves what the reader has now"
     cfgAskBool="{0} [{1}] (y/n)"
-    cfgAskRates="{0} kbps [{1}] (list of {2}; - = none; 106 is always on)"
+    cfgAskRates="{0} kbps [{1}] (list of {2}; - = none; d = leave as is; 106 is always on)"
     cfgAskChoice="{0} [{1}] ({2})"
     cfgAskList="{0} [{1}] (comma-separated: {2})"
     cfgInvalid="  Invalid answer '{0}' - try again."
@@ -160,9 +160,9 @@ $script:MSG = @{
     menuChoice="Wybor"; menuProfile="Plik profilu (JSON)"; menuInvalid="Nieznany wybor: '{0}'"
     menuReaders="Podlaczonych jest kilka czytnikow:"; menuReader="Numer czytnika"
     # --- configure (pytania) ---
-    cfgTitle="KONFIGURACJA {0} - odpowiedz na pytania, Enter zostawia obecna wartosc"
+    cfgTitle="KONFIGURACJA {0} - Enter przyjmuje wartosc w [nawiasie], d zostawia to, co jest w czytniku"
     cfgAskBool="{0} [{1}] (t/n)"
-    cfgAskRates="{0} kbps [{1}] (lista z {2}; - = brak; 106 jest zawsze wlaczone)"
+    cfgAskRates="{0} kbps [{1}] (lista z {2}; - = brak; d = zostaw jak jest; 106 jest zawsze wlaczone)"
     cfgAskChoice="{0} [{1}] ({2})"
     cfgAskList="{0} [{1}] (po przecinku: {2})"
     cfgInvalid="  Nieprawidlowa odpowiedz '{0}' - sprobuj jeszcze raz."

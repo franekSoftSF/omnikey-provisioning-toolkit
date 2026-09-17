@@ -79,10 +79,12 @@ function Format-ConfigValue([string]$type, $v) {
 
 function Split-ConfigAnswer([string]$answer) { @($answer -split '[,;\s]+' | Where-Object { $_ }) }
 
-# parse one answer; returns @{ ok; value }. An empty answer keeps $current.
+# parse one answer; returns @{ ok; value; keepReader }. Enter keeps $current (the suggested value),
+# "d" asks to leave the value the reader has now (differs from $current when a preset is used).
 function ConvertFrom-ConfigAnswer([string]$type, [string]$answer, $current, $model, $rates) {
     $a = ([string]$answer).Trim()
-    if (-not $a) { return @{ ok = $true; value = $current } }
+    if (-not $a) { return @{ ok = $true; value = $current } }                                          # Enter = value in brackets
+    if ($a -match '^(d|default|domyslnie)$') { return @{ ok = $true; value = $current; keepReader = $true } }   # d = leave the reader's value
     switch ($type) {
         'bool' {
             if ($a -match '^(y|yes|t|tak|true|1)$') { return @{ ok = $true; value = $true } }
@@ -130,10 +132,11 @@ function ConvertFrom-ConfigAnswer([string]$type, [string]$answer, $current, $mod
 }
 
 # ask until a valid answer (3 attempts); returns @{ value } so empty lists and $null survive (lesson 2)
-function Read-ConfigAnswer([string]$prompt, [string]$type, $current, $model, $rates) {
+function Read-ConfigAnswer([string]$prompt, [string]$type, $current, $model, $rates, $readerValue) {
     for ($i = 0; $i -lt 3; $i++) {
         $answer = [string](Read-Host $prompt)
         $r = ConvertFrom-ConfigAnswer $type $answer $current $model $rates
+        if ($r.ok -and $r.keepReader) { return @{ value = $readerValue } }
         if ($r.ok) { return @{ value = $r.value } }
         Write-Host (T cfgInvalid $answer) -ForegroundColor Yellow
     }
@@ -212,27 +215,29 @@ function Invoke-ReaderConfigurator([string]$readerMatch, [bool]$interactive, [st
         Write-Host ""
         Write-Host ("  " + (T ("q." + $q.key))) -ForegroundColor Cyan
         switch ($q.type) {
-            'bool' { $new = (Read-ConfigAnswer (T cfgAskBool $q.key (Format-ConfigValue 'bool' $def)) 'bool' $def $model $null).value }
+            'bool' { $new = (Read-ConfigAnswer (T cfgAskBool $q.key (Format-ConfigValue 'bool' $def)) 'bool' $def $model $null $cur).value }
             'baud' {
                 $rates = $script:BaudRates[$q.section]
                 $defRx = $null; $defTx = $null
                 if ($def) { $defRx = $def.rx; $defTx = $def.tx }   # no if-expression: it would unroll @() to $null
-                $rx = (Read-ConfigAnswer (T cfgAskRates "$($q.key) rx" (Format-ConfigList $defRx) ($rates -join ' ')) 'rates' $defRx $model $rates).value
-                $tx = (Read-ConfigAnswer (T cfgAskRates "$($q.key) tx" (Format-ConfigList $defTx) ($rates -join ' ')) 'rates' $defTx $model $rates).value
+                $curRx = $null; $curTx = $null
+                if ($cur) { $curRx = $cur.rx; $curTx = $cur.tx }
+                $rx = (Read-ConfigAnswer (T cfgAskRates "$($q.key) rx" (Format-ConfigList $defRx) ($rates -join ' ')) 'rates' $defRx $model $rates $curRx).value
+                $tx = (Read-ConfigAnswer (T cfgAskRates "$($q.key) tx" (Format-ConfigList $defTx) ($rates -join ' ')) 'rates' $defTx $model $rates $curTx).value
                 $new = if ($null -eq $rx -and $null -eq $tx) { $null } else { @{ rx = @($rx | Where-Object { $null -ne $_ }); tx = @($tx | Where-Object { $null -ne $_ }) } }
             }
             'freq' {
                 $opts = (@(0..($script:FreqNames.Count - 1) | ForEach-Object { "{0}={1}" -f ($_ + 1), $script:FreqNames[$_] }) -join ' ')
-                $new = (Read-ConfigAnswer (T cfgAskChoice $q.key (Format-ConfigValue 'freq' $def) $opts) 'freq' $def $model $null).value
+                $new = (Read-ConfigAnswer (T cfgAskChoice $q.key (Format-ConfigValue 'freq' $def) $opts) 'freq' $def $model $null $cur).value
             }
             'poll' {
                 $opts = (($script:PollCodes.Keys | Sort-Object) -join ' ')
-                $new = (Read-ConfigAnswer (T cfgAskList $q.key (Format-ConfigValue 'poll' $def) $opts) 'poll' $def $model $null).value
+                $new = (Read-ConfigAnswer (T cfgAskList $q.key (Format-ConfigValue 'poll' $def) $opts) 'poll' $def $model $null $cur).value
             }
-            'mode' { $new = (Read-ConfigAnswer (T cfgAskChoice $q.key (Format-ConfigValue 'mode' $def) "1=iso7816 2=emvco") 'mode' $def $model $null).value }
+            'mode' { $new = (Read-ConfigAnswer (T cfgAskChoice $q.key (Format-ConfigValue 'mode' $def) "1=iso7816 2=emvco") 'mode' $def $model $null $cur).value }
             'volt' {
                 $opts = "5V 3V 1.8V | auto"
-                $new = (Read-ConfigAnswer (T cfgAskList $q.key (Format-ConfigValue 'volt' $def) $opts) 'volt' $def $model $null).value
+                $new = (Read-ConfigAnswer (T cfgAskList $q.key (Format-ConfigValue 'volt' $def) $opts) 'volt' $def $model $null $cur).value
             }
         }
         $answers[$q.key] = $new

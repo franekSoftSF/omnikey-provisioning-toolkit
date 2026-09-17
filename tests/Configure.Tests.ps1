@@ -34,6 +34,7 @@ Describe 'Configure questions' {
         @{ type = 'rates'; answer = '424, 212';    ok = $true;  value = @(212, 424) }
         @{ type = 'rates'; answer = '106 848';     ok = $true;  value = @(848) }
         @{ type = 'rates'; answer = '999';         ok = $false; value = $null }
+
         @{ type = 'freq';  answer = '7';           ok = $true;  value = '0.7Hz' }
         @{ type = 'freq';  answer = '0.08hz';      ok = $true;  value = '0.08Hz' }
         @{ type = 'freq';  answer = '11';          ok = $false; value = $null }
@@ -57,6 +58,8 @@ Describe 'Configure questions' {
         $null -eq $r.value | Should -BeFalse
         @($r.value).Count | Should -Be 0
         (ConvertFrom-ConfigAnswer 'rates' '-' @(212) $m5022 @(212)).value.Count | Should -Be 0
+        @((ConvertFrom-ConfigAnswer 'rates' 'd' @(212, 424) $m5022 @(212, 424)).value) | Should -Be @(212, 424)
+        (ConvertFrom-ConfigAnswer 'bool' 'D' $true $m5022 $null).value | Should -BeTrue
     }
 
     It 'the MIFARE + FIDO preset is a valid 5022 profile and is offered only to models that have every key' {
@@ -111,8 +114,8 @@ Describe 'Invoke-ReaderConfigurator' {
         $prompts.Count | Should -Be 19
         $prompts[0] | Should -Be 'Start from (1 = current reader settings, 2 = MIFARE + FIDO only (ISO 14443 A on, other technologies off); Enter = 1)'
         $prompts[1] | Should -Be 'iso14443a.enabled [True] (y/n)'
-        $prompts[4] | Should -Be 'iso14443a.baud rx kbps [212,424] (list of 212 424 848; - = none; 106 is always on)'
-        $prompts[11] | Should -Be 'felica.baud rx kbps [212] (list of 212 424; - = none; 106 is always on)'
+        $prompts[4] | Should -Be 'iso14443a.baud rx kbps [212,424] (list of 212 424 848; - = none; d = leave as is; 106 is always on)'
+        $prompts[11] | Should -Be 'felica.baud rx kbps [212] (list of 212 424; - = none; d = leave as is; 106 is always on)'
         $prompts[16] | Should -Match '^sleepModePollingFrequency \[0\.7Hz\] \(1=41Hz .*7=0\.7Hz'
         $prompts[17] | Should -Match '^pollingSearchOrder \[iso14443a,iso14443b,iclass,felica,iso15693\]'
         $r.text | Should -Match 'CONFIGURE OMNIKEY 5022'
@@ -180,6 +183,18 @@ Describe 'Invoke-ReaderConfigurator' {
         @($sent) | Should -Be @(
             "${ApduSetPrefix}A30380010000", "${ApduSetPrefix}A40380010000", "${ApduSetPrefix}A50380010000",
             "${ApduSetPrefix}A60383010000", "${ApduPollSet}020000000000", $ApduApply, $ApduReboot)
+    }
+
+    It 'with a preset, "d" leaves the value the reader has now (Enter takes the preset value)' {
+        # preset 2; 14443A x5 Enter; 14443B "d" -> stays on, so its rx/tx are asked; 15693/FeliCa/iCLASS Enter (off); EMD, sleep, freq, polling; save; apply
+        Initialize-AnswerQueue (@('2', '', '', '', '', '', 'd', '', '', '', '', '', '', '', '', '', '', 'y'))
+        [void](Invoke-Captured { Invoke-ReaderConfigurator '5022' $false 'en' $false })
+        $script:answerQueue.Count | Should -Be 0
+        @($prompts | Where-Object { $_ -like 'iso14443b.enabled*' }) | Should -Be @('iso14443b.enabled [False] (y/n)')
+        @($prompts | Where-Object { $_ -like 'iso14443b.baud*' }).Count | Should -Be 2
+        @($sent) | Should -Be @(
+            "${ApduSetPrefix}A40380010000", "${ApduSetPrefix}A50380010000", "${ApduSetPrefix}A60383010000",
+            "${ApduPollSet}020000000000", $ApduApply, $ApduReboot)
     }
 
     It 'an unknown preset number stops before any question' {
