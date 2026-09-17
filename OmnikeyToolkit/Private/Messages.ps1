@@ -1,0 +1,139 @@
+# Runtime messages (EN/PL) - lesson 6: every console text goes through $MSG + T.
+# Keys of the former CheckProfile5022.ps1 and Batch-Omnikey5022-Provision.ps1 are kept verbatim.
+
+$script:MSG = @{
+  en = @{
+    # --- single-reader tool ---
+    noService="Smart Card service not available."; noReader="No reader matching '{0}'. Available:`n{1}"
+    reader="Reader"; serial="Serial"; connectFail="Cannot connect in DIRECT mode (reader busy?)."
+    profileNeeded="-Profile <file.json> is required for mode {0}."; profileBad="Cannot parse profile: {0}"
+    current="CURRENT CONFIGURATION"; setting="Applying profile..."; setOk="  [OK] {0} = {1}"
+    setFail="  [ERROR] {0}: {1}"; applying="Apply + reboot..."; applied="Settings applied."
+    verifying="AUDIT: comparing reader configuration with profile..."
+    vOk="  [PASS] {0} = {1}"; vBad="  [FAIL] {0}: expected {1}, reader has {2}"
+    vReadFail="  [FAIL] {0}: cannot read value"
+    resultPass="AUDIT RESULT: PASS ({0} parameters checked)"; resultFail="AUDIT RESULT: FAIL ({0}/{1} mismatches)"
+    rebootSkip="Reboot skipped (-NoReboot) - settings become active after reader replug."
+    waitReboot="Waiting {0}s for reader re-enumeration..."
+    cardWait="Present a card on the reader (waiting up to {0}s)..."
+    cardTimeout="TIMEOUT - no card presented."; cardAtr="ATR"; cardUid="UID"
+    cardIs="Card identified as: {0}"; cardRaw="Storage card, unknown code {0}"
+    cardCpu="ISO 14443-4 CPU / processor card (T=CL) - e.g. banking EMV, PIV, JavaCard, or a dual-interface card presenting its processor side"
+    verdictYes="VERDICT: reader sees this card as MIFARE CLASSIC - emulation/native Classic WORKS for this card."
+    verdictNo="VERDICT: this card is NOT presented as MIFARE Classic."
+    hintPrefOff="Note: mifarePreferred is DISABLED on this reader. A dual-interface card with Classic emulation will present as a CPU card. Enable it (Mode Set) and retest."
+    hintPrefOn="mifarePreferred is ENABLED - if the card has a Classic emulation, it would have been presented as Classic. This card does not expose one (or uses a different technology)."
+    prefState="Reader mifarePreferred: {0}"
+    cardRemove="Remove the card..."; loopStart="Card test LOOP - Ctrl+C to finish."
+    loopSum="Cards tested: {0}  |  MIFARE Classic: {1}  |  other: {2}"
+    exported="Profile exported to: {0}"; exportHint="Feed it straight to the batch script:`n  .\Batch-Omnikey5022-Provision.ps1 -ProfilePath {0}"
+    # --- batch station ---
+    wait="[WAIT] Plug in a batch of readers..."; unplug="[WAIT] Unplug the whole batch..."
+    batch="[BATCH #{0}] Detected {1} unit(s)."; state="  [{0}] {1} fw:{2}"
+    already="already compliant"; cfg="configured and verified"; readErr="read error"
+    pend="  Rebooting {0} unit(s) - verifying in {1}s..."; sum="[BATCH #{0}] PASS: {1}  FAIL: {2}   | SESSION: {3} OK / {4} FAIL / total in CSV: {5}"
+    done="Session finished. PASS: {0}, FAIL: {1}, total in CSV: {2}"; resume="Previously done (CSV): {0} unit(s)"
+    # --- reader models ---
+    modelUnknown="Note: reader model '{0}' is not in the toolkit's model registry - configuration changes are blocked, reading only."
+    modelUnverified="Note: {0} support is experimental (not yet verified on hardware)."
+    modelNoWrite="Configuration changes are blocked for unknown reader model '{0}'."
+    modelUnsupported="{0}: not supported by {1}"
+    modelNoVoltageAuto="contactSlot.voltageSequence ""auto"" is not kept by {0} - list the voltages instead, e.g. [""5V"",""3V"",""1.8V""]"
+    # --- profile validation ---
+    profUnknownKey="Unknown profile key '{0}' (allowed: {1})"
+    profSection="{0}: expected an object with keys ({1})"
+    profBool="{0}: expected true or false, got '{1}'"
+    profBaud="{0}: unsupported bit rate '{1}' (use: {2}; 106 is always on)"
+    profFreq="sleepModePollingFrequency: '{0}' (use: {1})"
+    profPoll="pollingSearchOrder: '{0}' (use: {1})"
+    profPollMax="pollingSearchOrder: at most 5 entries, got {0}"
+    profChoice="{0}: '{1}' (use: {2})"
+    profVoltage="contactSlot.voltageSequence: expected ""auto"" or 1-3 distinct voltages, got '{0}' (use: {1})"
+    # --- contact cards ---
+    cardContact="contact smart card (ISO 7816), protocol {0}"
+    verdictContact="VERDICT: the card answered - the contact slot WORKS for this card."
+    # --- Omnikey.ps1 ---
+    cliNotFor="-{0} cannot be used with '{1}'."
+    cliMulti="Several readers found - choose one with -ReaderMatch:`n{0}"
+    cliNoOmnikey="No OMNIKEY reader found. Available:`n{0}"
+    menuTitle="OMNIKEY Provisioning Toolkit"
+    menuItems="  1) get       - show reader configuration`n  2) verify    - audit reader against a profile`n  3) set       - apply a profile`n  4) export    - save reader configuration as a profile`n  5) testcard  - test a card`n  6) batch     - batch provisioning station`n  7) readers   - list connected readers`n  0) exit"
+    menuChoice="Choice"; menuProfile="Profile file (JSON)"; menuInvalid="Unknown choice: '{0}'"
+    readersNone="No OMNIKEY reader found."
+    readersModel="    model: {0}  fw: {1}  serial: {2}"
+    readersSlots="    contactless slot: {0}  contact slot: {1}  configuration: {2}"
+    cfgVerified="supported"; cfgExperimental="experimental"; cfgReadOnly="read-only (unknown model)"
+    yes="yes"; no="no"
+  }
+  pl = @{
+    # --- narzedzie pojedynczej sztuki ---
+    noService="Usluga karty inteligentnej niedostepna."; noReader="Brak czytnika pasujacego do '{0}'. Dostepne:`n{1}"
+    reader="Czytnik"; serial="Nr seryjny"; connectFail="Nie mozna polaczyc w trybie DIRECT (czytnik zajety?)."
+    profileNeeded="Tryb {0} wymaga -Profile <plik.json>."; profileBad="Nie mozna sparsowac profilu: {0}"
+    current="AKTUALNA KONFIGURACJA"; setting="Wgrywam profil..."; setOk="  [OK] {0} = {1}"
+    setFail="  [BLAD] {0}: {1}"; applying="Apply + reboot..."; applied="Ustawienia zapisane."
+    verifying="AUDYT: porownuje konfiguracje czytnika z profilem..."
+    vOk="  [PASS] {0} = {1}"; vBad="  [FAIL] {0}: oczekiwano {1}, czytnik ma {2}"
+    vReadFail="  [FAIL] {0}: nie mozna odczytac wartosci"
+    resultPass="WYNIK AUDYTU: PASS (sprawdzono parametrow: {0})"; resultFail="WYNIK AUDYTU: FAIL (niezgodnosci: {0}/{1})"
+    rebootSkip="Pominieto reboot (-NoReboot) - ustawienia aktywne po przepieciu czytnika."
+    waitReboot="Czekam {0}s na re-enumeracje czytnika..."
+    cardWait="Przyloz karte do czytnika (czekam do {0}s)..."
+    cardTimeout="TIMEOUT - nie przylozono karty."; cardAtr="ATR"; cardUid="UID"
+    cardIs="Karta rozpoznana jako: {0}"; cardRaw="Karta pamieciowa, nieznany kod {0}"
+    cardCpu="Karta procesorowa ISO 14443-4 (T=CL) - np. bankowa EMV, PIV, JavaCard lub karta dual-interface prezentujaca strone procesorowa"
+    verdictYes="WERDYKT: czytnik widzi te karte jako MIFARE CLASSIC - emulacja/natywny Classic DZIALA dla tej karty."
+    verdictNo="WERDYKT: ta karta NIE jest prezentowana jako MIFARE Classic."
+    hintPrefOff="Uwaga: mifarePreferred jest WYLACZONE na tym czytniku. Karta dual-interface z emulacja Classic pokaze sie jako procesorowa. Wlacz (Mode Set) i powtorz test."
+    hintPrefOn="mifarePreferred jest WLACZONE - gdyby karta miala emulacje Classic, zostalaby tak zaprezentowana. Ta karta jej nie udostepnia (lub to inna technologia)."
+    prefState="mifarePreferred czytnika: {0}"
+    cardRemove="Zdejmij karte..."; loopStart="PETLA testu kart - Ctrl+C konczy."
+    loopSum="Przetestowano kart: {0}  |  MIFARE Classic: {1}  |  inne: {2}"
+    exported="Profil wyeksportowany do: {0}"; exportHint="Mozesz go od razu podac do skryptu wsadowego:`n  .\Batch-Omnikey5022-Provision.ps1 -ProfilePath {0}"
+    # --- stacja wsadowa ---
+    wait="[WAIT] Wepnij partie czytnikow..."; unplug="[WAIT] Odepnij cala partie..."
+    batch="[PARTIA #{0}] Wykryto {1} szt."; state="  [{0}] {1} fw:{2}"
+    already="juz zgodny z profilem"; cfg="skonfigurowano i zweryfikowano"; readErr="blad odczytu"
+    pend="  Reboot {0} szt. - weryfikacja za {1}s..."; sum="[PARTIA #{0}] PASS: {1}  FAIL: {2}   | SESJA: {3} OK / {4} FAIL / w CSV: {5}"
+    done="Koniec sesji. PASS: {0}, FAIL: {1}, w CSV: {2}"; resume="Zrobione wczesniej (CSV): {0} szt."
+    # --- modele czytnikow ---
+    modelUnknown="Uwaga: model czytnika '{0}' nie jest w rejestrze modeli - zmiany konfiguracji zablokowane, tylko odczyt."
+    modelUnverified="Uwaga: obsluga {0} jest eksperymentalna (jeszcze niezweryfikowana na sprzecie)."
+    modelNoWrite="Zmiany konfiguracji zablokowane dla nieznanego modelu czytnika '{0}'."
+    modelUnsupported="{0}: nieobslugiwane przez {1}"
+    modelNoVoltageAuto="contactSlot.voltageSequence ""auto"" nie jest zachowywane przez {0} - podaj napiecia, np. [""5V"",""3V"",""1.8V""]"
+    # --- walidacja profilu ---
+    profUnknownKey="Nieznany klucz profilu '{0}' (dozwolone: {1})"
+    profSection="{0}: oczekiwano obiektu z kluczami ({1})"
+    profBool="{0}: oczekiwano true lub false, jest '{1}'"
+    profBaud="{0}: nieobslugiwana predkosc '{1}' (dozwolone: {2}; 106 jest zawsze wlaczone)"
+    profFreq="sleepModePollingFrequency: '{0}' (dozwolone: {1})"
+    profPoll="pollingSearchOrder: '{0}' (dozwolone: {1})"
+    profPollMax="pollingSearchOrder: maksymalnie 5 pozycji, jest {0}"
+    profChoice="{0}: '{1}' (dozwolone: {2})"
+    profVoltage="contactSlot.voltageSequence: oczekiwano ""auto"" lub 1-3 roznych napiec, jest '{0}' (dozwolone: {1})"
+    # --- karty stykowe ---
+    cardContact="karta stykowa (ISO 7816), protokol {0}"
+    verdictContact="WERDYKT: karta odpowiedziala - gniazdo stykowe DZIALA dla tej karty."
+    # --- Omnikey.ps1 ---
+    cliNotFor="-{0} nie moze byc uzyte z '{1}'."
+    cliMulti="Znaleziono kilka czytnikow - wybierz jeden przez -ReaderMatch:`n{0}"
+    cliNoOmnikey="Nie znaleziono czytnika OMNIKEY. Dostepne:`n{0}"
+    menuTitle="OMNIKEY Provisioning Toolkit"
+    menuItems="  1) get       - pokaz konfiguracje czytnika`n  2) verify    - audyt czytnika wzgledem profilu`n  3) set       - wgraj profil`n  4) export    - zapisz konfiguracje czytnika jako profil`n  5) testcard  - test karty`n  6) batch     - stacja wsadowa`n  7) readers   - lista podlaczonych czytnikow`n  0) wyjscie"
+    menuChoice="Wybor"; menuProfile="Plik profilu (JSON)"; menuInvalid="Nieznany wybor: '{0}'"
+    readersNone="Nie znaleziono czytnika OMNIKEY."
+    readersModel="    model: {0}  fw: {1}  nr seryjny: {2}"
+    readersSlots="    gniazdo bezstykowe: {0}  gniazdo stykowe: {1}  konfiguracja: {2}"
+    cfgVerified="obslugiwana"; cfgExperimental="eksperymentalna"; cfgReadOnly="tylko odczyt (nieznany model)"
+    yes="tak"; no="nie"
+  }
+}
+$script:M = $script:MSG.en
+
+function Set-MessageLanguage([string]$lang) {
+    if (-not $script:MSG.ContainsKey($lang)) { $lang = 'en' }
+    $script:M = $script:MSG[$lang]
+}
+
+function T([string]$key, $a0="", $a1="", $a2="", $a3="", $a4="", $a5="") { $script:M[$key] -f $a0,$a1,$a2,$a3,$a4,$a5 }
