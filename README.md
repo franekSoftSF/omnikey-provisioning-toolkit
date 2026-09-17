@@ -111,8 +111,9 @@ HID Global OMNIKEY 5022 Smart Card Reader 0
     contactless slot: yes  contact slot: no  configuration: supported
 ```
 
-- Without `-ReaderMatch` the single connected OMNIKEY reader is used; with several readers the
-  command stops and lists them. `-ReaderMatch` takes a regex on the PC/SC reader name **or a model
+- Without `-ReaderMatch` the single connected OMNIKEY reader is used; with several readers the menu
+  asks which one to use, while a command line
+  stops and lists them (scripts never guess). `-ReaderMatch` takes a regex on the PC/SC reader name **or a model
   number** (`-ReaderMatch 3121` finds "OMNIKEY 3x21"). `batch` uses all OMNIKEY readers by default.
 - Parameters are the same as in the scripts below (`-ProfilePath` also accepts `-Profile`);
   a parameter that does not belong to the command (e.g. `get -Loop`) is an error.

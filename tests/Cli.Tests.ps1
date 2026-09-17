@@ -256,6 +256,24 @@ Describe 'Invoke-OmnikeyCli (Omnikey.ps1)' {
         Should -Invoke Invoke-OmnikeyTool -Times 1 -Exactly -ParameterFilter { $Mode -eq 'Verify' -and $ProfilePath -eq 'p.json' }
     }
 
+    It 'the menu lets the operator pick one of several readers (the command line never guesses)' {
+        $answers = [System.Collections.Queue]::new([object[]]@('1', '2'))     # get, second OMNIKEY reader
+        Mock Read-Host { $answers.Dequeue() }
+        $r = Invoke-Captured { Invoke-OmnikeyCli }
+        @($r.out) | Should -Be @(7)
+        $r.text | Should -Match ([regex]::Escape("  1) $name3121"))
+        $r.text | Should -Match ([regex]::Escape("  2) $name5022"))
+        $r.text | Should -Not -Match 'Yubico'
+        Should -Invoke Invoke-OmnikeyTool -Times 1 -Exactly -ParameterFilter { $Mode -eq 'Get' -and $ReaderMatch -eq ('^' + [regex]::Escape($name5022) + '$') }
+    }
+
+    It 'the menu rejects a reader number that is not on the list' {
+        $answers = [System.Collections.Queue]::new([object[]]@('1', '3'))
+        Mock Read-Host { $answers.Dequeue() }
+        { Invoke-OmnikeyCli 6>$null } | Should -Throw -ExpectedMessage "Unknown choice: '3'"
+        Should -Invoke Invoke-OmnikeyTool -Times 0 -Exactly
+    }
+
     It 'the menu exits with 0 on "0" and rejects unknown choices' {
         Mock Read-Host { '0' }
         (Invoke-Captured { Invoke-OmnikeyCli }).out | Should -Be @(0)

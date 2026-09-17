@@ -20,7 +20,8 @@ Tylko `Private/Transport.ps1` woła winscard (za funkcjami `Invoke-Native*` — 
 Skrypty w roocie to cienkie wrappery (param → Import-Module -Force → funkcja → `exit $code`;
 pilnuje tego tests/Repo.Tests.ps1):
 - `Omnikey.ps1` — jeden punkt wejścia: `get|set|verify|export|testcard|batch|readers`, bez
-  komendy = menu. Bez `-ReaderMatch` bierze jedyny czytnik OMNIKEY (kilka ⇒ błąd z listą);
+  komendy = menu. Bez `-ReaderMatch` bierze jedyny czytnik OMNIKEY (kilka ⇒ w menu wybór numeru,
+  z linii poleceń błąd z listą — skrypt nigdy nie zgaduje);
   `-ReaderMatch <model>` (np. 3121) mapuje na nazwę PC/SC z rejestru. Parametr spoza komendy = błąd.
 - `Private/Models.ps1` — rejestr modeli (dane): product name z A0 82 → klucze profilu, `verified`,
   `voltageAuto`. 5022 (contactless, verified), 3121 (contact, verified), 5422/5122 (wg OK5422.cs,

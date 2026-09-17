@@ -19,9 +19,9 @@ function Assert-CliParameters([string]$command, [string[]]$bound) {
     }
 }
 
-# pick exactly one reader: explicit -ReaderMatch keeps the old "first match" rule,
-# otherwise exactly one OMNIKEY reader must be connected
-function Resolve-SingleReader([string]$readerMatch) {
+# pick exactly one reader: explicit -ReaderMatch keeps the old "first match" rule, otherwise
+# exactly one OMNIKEY reader must be connected - or, in the menu ($interactive), the operator picks one
+function Resolve-SingleReader([string]$readerMatch, [bool]$interactive = $false) {
     Initialize-Context
     if (-not (Test-ContextReady)) { throw (T noService) }
     $all = Get-ReaderList
@@ -38,8 +38,17 @@ function Resolve-SingleReader([string]$readerMatch) {
     }
     $omnikey = @($all | Where-Object { $_ -match 'OMNIKEY' })
     if ($omnikey.Count -eq 0) { throw (T cliNoOmnikey ($all -join "`n")) }
-    if ($omnikey.Count -gt 1) { throw (T cliMulti ($omnikey -join "`n")) }
-    '^' + [regex]::Escape($omnikey[0]) + '$'
+    $pick = 0
+    if ($omnikey.Count -gt 1) {
+        if (-not $interactive) { throw (T cliMulti ($omnikey -join "`n")) }
+        Write-Host (T menuReaders) -ForegroundColor Cyan
+        for ($i = 0; $i -lt $omnikey.Count; $i++) { Write-Host ("  {0}) {1}" -f ($i + 1), $omnikey[$i]) }
+        $answer = ([string](Read-Host (T menuReader))).Trim()
+        $n = 0
+        if (-not [int]::TryParse($answer, [ref]$n) -or $n -lt 1 -or $n -gt $omnikey.Count) { throw (T menuInvalid $answer) }
+        $pick = $n - 1
+    }
+    '^' + [regex]::Escape($omnikey[$pick]) + '$'
 }
 
 # lists OMNIKEY readers and other HID Global readers; escape commands are sent ONLY to OMNIKEY

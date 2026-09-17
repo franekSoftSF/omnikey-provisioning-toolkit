@@ -26,6 +26,7 @@ function Invoke-OmnikeyCli {
     )
     Set-MessageLanguage $Lang
 
+    $interactive = -not $Command
     if (-not $Command) {
         $sel = Read-MenuSelection
         if (-not $sel) { return [int]0 }
@@ -45,7 +46,7 @@ function Invoke-OmnikeyCli {
                 -PollMs $PollMs -StableSec $StableSec -RebootWait $RebootWait -VerifyRetry $VerifyRetry)
         }
         default {
-            $match = Resolve-SingleReader $ReaderMatch
+            $match = Resolve-SingleReader $ReaderMatch $interactive
             return [int](Invoke-OmnikeyTool -Mode $script:CliModes[$Command] -ProfilePath $ProfilePath -Lang $Lang -ReaderMatch $match `
                 -NoReboot:$NoReboot -RebootWait $RebootWait -CardTimeout $CardTimeout -OutProfile $OutProfile -Loop:$Loop)
         }
