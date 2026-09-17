@@ -175,7 +175,7 @@ Describe 'Line endings (lesson 6)' {
     It 'text files in the repo use LF only' {
         $exts = '.ps1', '.psd1', '.psm1', '.md', '.json', '.yml', '.yaml', '.txt', '.gitattributes', '.gitignore'
         $files = Get-ChildItem $RepoRoot -Recurse -File -Force |
-            Where-Object { $_.FullName -notmatch '[\\/]\.git[\\/]' -and ($exts -contains $_.Extension -or $exts -contains $_.Name) }
+            Where-Object { $_.FullName -notmatch '[\\/](\.git|omnikey-backups)[\\/]' -and ($exts -contains $_.Extension -or $exts -contains $_.Name) }
         $files.Count | Should -BeGreaterThan 0
         $crlf = @($files | Where-Object { [IO.File]::ReadAllText($_.FullName).Contains("`r") } |
             ForEach-Object { $_.FullName.Substring($RepoRoot.Length + 1) })

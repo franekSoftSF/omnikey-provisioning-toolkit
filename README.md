@@ -43,12 +43,13 @@ omnikey-provisioning-toolkit/
 ├── README.md
 ├── LICENSE                          # MIT
 ├── .gitignore                       # keeps CSV logs & customer profiles out of git
-├── Omnikey.ps1                      # one entry point: get/set/verify/export/testcard/batch/readers
+├── Omnikey.ps1                      # one entry point: get/set/verify/export/testcard/batch/readers/configure/restore
 ├── CheckProfile5022.ps1             # single-reader tool (compatibility wrapper, same CLI as v1.0)
 ├── Batch-Omnikey5022-Provision.ps1  # mass provisioning station (compatibility wrapper)
 ├── OmnikeyToolkit/                  # PowerShell module with the implementation
 │   ├── OmnikeyToolkit.psd1 / .psm1
-│   ├── Private/                     # transport, APDUs, models, profiles, engine, cards, batch
+│   ├── Private/                     # transport, APDUs, models, profiles, engine, cards, batch, restore
+│   ├── Presets/                     # ready-made profiles offered by "configure" (mifare-fido.json)
 │   └── Public/                      # Invoke-OmnikeyCli / -Tool / -Batch
 ├── profiles/
 │   └── example-profile.json
@@ -98,6 +99,7 @@ Close Workbench before using the tools — it holds the reader and DIRECT connec
 .\Omnikey.ps1 testcard [-Loop]                                   # card test
 .\Omnikey.ps1 batch    -ProfilePath .\my-profile.json -LogCsv .\prov.csv
 .\Omnikey.ps1 configure                                          # set the reader by answering questions
+.\Omnikey.ps1 restore                                            # backup of this reader, a profile, or factory defaults
 .\Omnikey.ps1                                                    # interactive menu (returns to it after each action)
 ```
 
@@ -128,13 +130,15 @@ HID Global OMNIKEY 5022 Smart Card Reader 0
 with a short description and the reader's current value in brackets — press **Enter** to keep it:
 
 ```
-CONFIGURE OMNIKEY 5022 - answer each question, Enter keeps the current value
+CONFIGURE OMNIKEY 5022 - Enter accepts the value in [brackets], d leaves what the reader has now
+
+Start from (1 = current reader settings, 2 = MIFARE + FIDO only (ISO 14443 A on, other technologies off); Enter = 1): 1
 
   Present dual-interface cards as MIFARE Classic (Classic emulation)
 iso14443a.mifarePreferred [True] (y/n): n
 
   ISO 14443 Type A - extra bit rates
-iso14443a.baud rx kbps [212,424] (list of 212 424 848; - = none; 106 is always on):
+iso14443a.baud rx kbps [212,424] (list of 212 424 848; - = none; d = leave as is; 106 is always on):
 ...
 Changes:
   iso14443a.mifarePreferred: True -> False

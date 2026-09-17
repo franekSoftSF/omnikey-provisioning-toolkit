@@ -19,7 +19,7 @@ Card, Batch, Cli, Configure + Public: `Invoke-OmnikeyCli`, `Invoke-OmnikeyTool`,
 Tylko `Private/Transport.ps1` woła winscard (za funkcjami `Invoke-Native*` — mockowalne).
 Skrypty w roocie to cienkie wrappery (param → Import-Module -Force → funkcja → `exit $code`;
 pilnuje tego tests/Repo.Tests.ps1):
-- `Omnikey.ps1` — jeden punkt wejścia: `get|set|verify|export|testcard|batch|readers|configure`, bez
+- `Omnikey.ps1` — jeden punkt wejścia: `get|set|verify|export|testcard|batch|readers|configure|restore`, bez
   komendy = menu. Bez `-ReaderMatch` bierze jedyny czytnik OMNIKEY (kilka ⇒ w menu wybór numeru,
   z linii poleceń błąd z listą — skrypt nigdy nie zgaduje);
   `-ReaderMatch <model>` (np. 3121) mapuje na nazwę PC/SC z rejestru. Parametr spoza komendy = błąd.
