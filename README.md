@@ -66,7 +66,8 @@ omnikey-provisioning-toolkit/
   | OMNIKEY **5022** | contactless slot (all profile keys except `contactSlot`) | verified on hardware, used at scale |
   | OMNIKEY **3121** | contact slot (`contactSlot`) | verified on hardware (enumerates as "OMNIKEY 3x21"; no serial number) |
   | OMNIKEY 5422 / 5122 | contactless slot without 15693 / FeliCa / polling order, plus contact slot | per HID's sample code, **not yet verified on hardware** |
-  | any other reader | nothing — `get`/`verify` read only | configuration changes are blocked |
+  | other OMNIKEY readers | nothing — `get`/`verify` read only | configuration changes are blocked |
+  | other HID Global readers (e.g. Crescendo NFC Reader) | nothing — listed by `readers`, never sent configuration commands | HID publishes no configuration commands for them |
 
 - Driver, one of:
   - **HID OMNIKEY CCID Driver** v2.3.4+ (recommended; escape commands work out of the box) —
@@ -100,6 +101,8 @@ Close Workbench before using the tools — it holds the reader and DIRECT connec
 ```
 
 ```
+HID Global Crescendo NFC Reader 0
+    not an OMNIKEY reader - no configuration commands are sent to it (none published by HID)
 HID Global OMNIKEY 3x21 Smart Card Reader 0
     model: OMNIKEY 3121  fw: 1.6.0  serial: ?
     contactless slot: no  contact slot: yes  configuration: supported

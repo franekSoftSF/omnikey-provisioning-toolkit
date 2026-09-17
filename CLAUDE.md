@@ -79,6 +79,13 @@ Zweryfikowane na sprzęcie 2026-09-17:
   przyjęte (9000), ale po reboocie czytnik raportuje `03` (tylko 5V) ⇒ w rejestrze `voltageAuto=$false`.
   Contactless GET na 3121 zwracają częściowo błędy `9E02...`, częściowo przypadkowe wartości —
   dlatego decyduje rejestr modeli, nie odpowiedzi czytnika.
+- HID Global "Crescendo NFC Reader" (USB-C, USB 076B:5521, nazwa PC/SC "HID Global Crescendo NFC
+  Reader 0"): urządzenie złożone = czytnik CCID na sterowniku **Microsoft Usbccid (WUDF)** + port
+  szeregowy USB (COM, nie ruszać). NIE ma go w HID-OMNIKEY-Sample-Codes. Każdy escape (A0 80..96,
+  A2/A3/A6...) ⇒ `SCardControl` rc `0x00000001` (sterownik MS bez `EscapeCommandEnable=1`), więc nie
+  wiadomo, czy mówi AViatoR TLV. Atrybuty PC/SC działają (vendor "HID Global", type "Crescendo NFC
+  Reader", serial jest). `readers` go wypisuje, ale komendy konfiguracyjne idą tylko do nazw z "OMNIKEY".
+  Włączenie escape w rejestrze = zmiana systemu po stronie użytkownika; potem ponowna sonda GET-only.
 
 ## Twarde lekcje (naruszenie któregoś = regresja, którą już raz naprawialiśmy)
 1. PowerShell closures (`GetNewClosure()`) NIE widzą funkcji skryptu → silnik operacji jest
@@ -137,6 +144,10 @@ dla każdego przyszłego obrazka).
 7a. [ ] Batch dla czytników bez numeru seryjnego (OMNIKEY 3121): dziś FAIL `read error
    (no-serial:OMNIKEY 3121)` — potrzebny tryb po jednej sztuce albo inna identyfikacja.
 7b. [ ] Weryfikacja 5422/5122 na sprzęcie (dziś wg OK5422.cs, oznaczone jako eksperymentalne).
+7c. [ ] HID Crescendo NFC Reader (076B:5521): po włączeniu `EscapeCommandEnable=1` przez użytkownika
+   sonda GET-only. Odpowie jak AViatoR ⇒ wpis w rejestrze (najpierw odczyt, zapis po teście na
+   sprzęcie). Nie odpowie ⇒ konfiguracja innym kanałem (np. port COM) = poza regułą źródła APDU,
+   wymaga decyzji właściciela.
 8. [ ] Wsparcie OMNIKEY 5x27 (5127/5427) — UWAGA: inny mechanizm (EEM web serwer/TFTP,
    192.168.63.99), osobny skrypt obok, nie rozszerzenie obecnych.
 9. [ ] Ewentualny port pyscard/Python (Linux) — APDU bez zmian.
