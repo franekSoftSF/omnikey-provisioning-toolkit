@@ -121,8 +121,20 @@ function Get-BaudLists([IntPtr]$card, [string]$tech) {
     @{ rx = @($full.rx | Where-Object { $_ -ne 106 }); tx = @($full.tx | Where-Object { $_ -ne 106 }) }
 }
 
+# Get/Export console line: key in the default colour, value green (yellow when it could not be read)
+function Write-ConfigLine([string]$key, $value) {
+    Write-Host ("  {0,-28} " -f $key) -NoNewline
+    $unread = ($null -eq $value) -or ("$value" -eq "") -or ("$value" -match '^\?')
+    Write-Host $value -ForegroundColor $(if ($unread) { "Yellow" } else { "Green" })
+}
+
 # reader configuration as a profile (same JSON schema Set/Verify/Batch consume)
 function Export-ReaderProfile([IntPtr]$card, [string]$path, $model) {
+    Get-ReaderProfile $card $model | ConvertTo-Json -Depth 4 | Out-File $path -Encoding utf8
+}
+
+# reader configuration as an ordered profile hashtable (values $null when unreadable)
+function Get-ReaderProfile([IntPtr]$card, $model) {
     $prof = [ordered]@{}
     if ($model.contactless) {
         $a = Get-BaudLists $card "A2"; $bb = Get-BaudLists $card "A3"; $fb = Get-BaudLists $card "A5"
@@ -151,5 +163,5 @@ function Export-ReaderProfile([IntPtr]$card, [string]$path, $model) {
         if ($null -ne $v) { $section["voltageSequence"] = $(if ($v -eq 0) { "auto" } else { @((Format-VoltageDisplay $v) -split ',') }) }
         $prof["contactSlot"] = $section
     }
-    $prof | ConvertTo-Json -Depth 4 | Out-File $path -Encoding utf8
+    $prof
 }

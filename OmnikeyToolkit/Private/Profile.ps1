@@ -123,7 +123,12 @@ function ConvertTo-OperationList($p, $model = $null) {
     if ($model) {
         foreach ($op in $ops) {
             if (@($model.profileKeys) -notcontains $op.name) { throw (T modelUnsupported $op.name $model.product) }
-            if ($op.kind -eq "volt" -and $op.want -eq 0 -and -not $model.voltageAuto) { throw (T modelNoVoltageAuto $model.product) }
+        }
+        # EMVCo mode: the reader reports a fixed voltage - a profile asking for another sequence could never verify
+        $emv = @($ops | Where-Object { $_.kind -eq "mode" -and $_.wantDisp -eq "emvco" })
+        $volt = @($ops | Where-Object { $_.kind -eq "volt" })
+        if ($model.emvcoVoltage -and $emv.Count -and $volt.Count -and $volt[0].wantDisp -ne $model.emvcoVoltage) {
+            throw (T modelEmvcoVoltage $model.product $model.emvcoVoltage)
         }
     }
     ,$ops

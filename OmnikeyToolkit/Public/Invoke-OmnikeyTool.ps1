@@ -43,7 +43,7 @@ function Invoke-OmnikeyTool {
         switch ($Mode) {
             "Get" {
                 Write-Host (T current) -ForegroundColor Cyan
-                (Get-ReaderConfiguration $card $model).GetEnumerator() | ForEach-Object { Write-Host ("  {0,-28} {1}" -f $_.Key, $_.Value) }
+                (Get-ReaderConfiguration $card $model).GetEnumerator() | ForEach-Object { Write-ConfigLine $_.Key $_.Value }
             }
             "Set" {
                 $ops = ConvertTo-OperationList $prof $model
@@ -66,7 +66,7 @@ function Invoke-OmnikeyTool {
             "Export" {
                 Export-ReaderProfile $card $OutProfile $model
                 Write-Host (T current) -ForegroundColor Cyan
-                (Get-ReaderConfiguration $card $model).GetEnumerator() | ForEach-Object { Write-Host ("  {0,-28} {1}" -f $_.Key, $_.Value) }
+                (Get-ReaderConfiguration $card $model).GetEnumerator() | ForEach-Object { Write-ConfigLine $_.Key $_.Value }
                 $abs = (Resolve-Path $OutProfile).Path
                 Write-Host ""
                 Write-Host (T exported $abs) -ForegroundColor Green

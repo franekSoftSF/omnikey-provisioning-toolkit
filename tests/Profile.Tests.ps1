@@ -172,10 +172,17 @@ Describe 'ConvertTo-OperationList: model support' {
             Should -Throw -ExpectedMessage '*iso14443a.enabled: not supported by OMNIKEY 3121*'
     }
 
-    It 'accepts a contact slot profile on OMNIKEY 3121 but not voltageSequence "auto" (not kept by its firmware)' {
+    It 'accepts contact slot profiles on OMNIKEY 3121, including voltageSequence "auto"' {
         (ConvertTo-OperationList (ConvertTo-TestProfile '{"contactSlot":{"enabled":true,"operatingMode":"iso7816","voltageSequence":["5V","3V","1.8V"]}}') $m3121).Count | Should -Be 3
-        { ConvertTo-OperationList (ConvertTo-TestProfile '{"contactSlot":{"voltageSequence":"auto"}}') $m3121 } |
-            Should -Throw -ExpectedMessage '*"auto" is not kept by OMNIKEY 3121*'
+        (ConvertTo-OperationList (ConvertTo-TestProfile '{"contactSlot":{"operatingMode":"iso7816","voltageSequence":"auto"}}') $m3121).Count | Should -Be 2
+    }
+
+    It 'rejects a voltage sequence other than 5V together with EMVCo on OMNIKEY 3121 (it reports 5V in EMVCo mode)' {
+        { ConvertTo-OperationList (ConvertTo-TestProfile '{"contactSlot":{"operatingMode":"emvco","voltageSequence":["5V","3V"]}}') $m3121 } |
+            Should -Throw -ExpectedMessage '*in EMVCo mode OMNIKEY 3121 uses 5V only*'
+        { ConvertTo-OperationList (ConvertTo-TestProfile '{"contactSlot":{"operatingMode":"emvco","voltageSequence":"auto"}}') $m3121 } | Should -Throw
+        (ConvertTo-OperationList (ConvertTo-TestProfile '{"contactSlot":{"operatingMode":"emvco","voltageSequence":["5V"]}}') $m3121).Count | Should -Be 2
+        (ConvertTo-OperationList (ConvertTo-TestProfile '{"contactSlot":{"operatingMode":"emvco"}}') $m3121).Count | Should -Be 1
     }
 
     It 'rejects FeliCa and 15693 keys on OMNIKEY 5422 (OK5422.cs has no such classes)' {

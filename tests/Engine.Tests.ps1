@@ -89,14 +89,16 @@ Describe 'Op engine on a simulated OMNIKEY 3121 (contact slot)' {
     }
 
     It 'sends the ContactSlotConfiguration SET APDUs' {
-        $ops = ConvertTo-OperationList (ConvertTo-TestProfile '{"contactSlot":{"enabled":true,"operatingMode":"emvco","voltageSequence":["1.8V","3V","5V"]}}') $m3121
+        $ops = ConvertTo-OperationList (ConvertTo-TestProfile '{"contactSlot":{"enabled":true,"operatingMode":"emvco"}}') $m3121
+        $ops += ConvertTo-OperationList (ConvertTo-TestProfile '{"contactSlot":{"voltageSequence":["1.8V","3V","5V"]}}') $m3121
         foreach ($op in $ops) { Invoke-OpApply $card $op }
         @($sent) | Should -Be @("${ApduContactSetPrefix}85010100", "${ApduContactSetPrefix}83010100", "${ApduContactSetPrefix}82013900")
     }
 
     It 'Invoke-OpCheck compares contact slot values' {
-        $ops = ConvertTo-OperationList (ConvertTo-TestProfile '{"contactSlot":{"enabled":true,"operatingMode":"emvco","voltageSequence":["5V","3V","1.8V"]}}') $m3121
-        $r = @($ops | ForEach-Object { Invoke-OpCheck $card $_ })
+        $modeOps = ConvertTo-OperationList (ConvertTo-TestProfile '{"contactSlot":{"enabled":true,"operatingMode":"emvco"}}') $m3121
+        $voltOps = ConvertTo-OperationList (ConvertTo-TestProfile '{"contactSlot":{"voltageSequence":["5V","3V","1.8V"]}}') $m3121
+        $r = @((Invoke-OpCheck $card $modeOps[0]), (Invoke-OpCheck $card $modeOps[1]), (Invoke-OpCheck $card $voltOps[0]))
         $r[0].ok | Should -BeTrue
         $r[1].ok | Should -BeFalse; $r[1].have | Should -Be 'iso7816'
         $r[2].ok | Should -BeTrue; $r[2].have | Should -Be '5V,3V,1.8V'

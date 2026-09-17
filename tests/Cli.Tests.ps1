@@ -248,38 +248,54 @@ Describe 'Invoke-OmnikeyCli (Omnikey.ps1)' {
         Should -Invoke Invoke-OmnikeyBatch -Times 1 -Exactly -ParameterFilter { $ReaderMatch -eq 'OMNIKEY' -and $LogCsv -eq 'prov.csv' -and $ProfilePath -eq 'p.json' }
     }
 
-    It 'the menu runs the chosen command' {
-        $answers = [System.Collections.Queue]::new([object[]]@('2', '"p.json"'))
+    It 'the menu runs the chosen command and comes back to the menu until "0"' {
+        $answers = [System.Collections.Queue]::new([object[]]@('2', '"p.json"', '1', '0'))
         Mock Read-Host { $answers.Dequeue() }
         $r = Invoke-Captured { Invoke-OmnikeyCli -ReaderMatch 5022 }
-        @($r.out) | Should -Be @(7)
+        @($r.out) | Should -Be @(0)
         Should -Invoke Invoke-OmnikeyTool -Times 1 -Exactly -ParameterFilter { $Mode -eq 'Verify' -and $ProfilePath -eq 'p.json' }
+        Should -Invoke Invoke-OmnikeyTool -Times 1 -Exactly -ParameterFilter { $Mode -eq 'Get' }
+        ([regex]::Matches($r.text, 'OMNIKEY Provisioning Toolkit')).Count | Should -Be 3
+        $answers.Count | Should -Be 0
     }
 
     It 'the menu lets the operator pick one of several readers (the command line never guesses)' {
-        $answers = [System.Collections.Queue]::new([object[]]@('1', '2'))     # get, second OMNIKEY reader
+        $answers = [System.Collections.Queue]::new([object[]]@('1', '2', '0'))     # get, second OMNIKEY reader, exit
         Mock Read-Host { $answers.Dequeue() }
         $r = Invoke-Captured { Invoke-OmnikeyCli }
-        @($r.out) | Should -Be @(7)
+        @($r.out) | Should -Be @(0)
         $r.text | Should -Match ([regex]::Escape("  1) $name3121"))
         $r.text | Should -Match ([regex]::Escape("  2) $name5022"))
         $r.text | Should -Not -Match 'Yubico'
         Should -Invoke Invoke-OmnikeyTool -Times 1 -Exactly -ParameterFilter { $Mode -eq 'Get' -and $ReaderMatch -eq ('^' + [regex]::Escape($name5022) + '$') }
     }
 
-    It 'the menu rejects a reader number that is not on the list' {
-        $answers = [System.Collections.Queue]::new([object[]]@('1', '3'))
+    It 'an error inside a menu action is shown and the menu continues' {
+        $answers = [System.Collections.Queue]::new([object[]]@('1', '3', '2', '', '0'))   # bad reader number; verify without a profile
         Mock Read-Host { $answers.Dequeue() }
-        { Invoke-OmnikeyCli 6>$null } | Should -Throw -ExpectedMessage "Unknown choice: '3'"
+        $r = Invoke-Captured { Invoke-OmnikeyCli }
+        @($r.out) | Should -Be @(0)
+        $r.text | Should -Match "Unknown choice: '3'"
+        $r.text | Should -Match ([regex]::Escape('-Profile <file.json> is required for mode verify.'))
+        Should -Invoke Invoke-OmnikeyTool -Times 0 -Exactly
+        $answers.Count | Should -Be 0
+    }
+
+    It 'the menu ignores an empty choice, reports an unknown one and exits with 0 on "0"' {
+        $answers = [System.Collections.Queue]::new([object[]]@('', '9', '0'))
+        Mock Read-Host { $answers.Dequeue() }
+        $r = Invoke-Captured { Invoke-OmnikeyCli }
+        @($r.out) | Should -Be @(0)
+        $r.text | Should -Match "Unknown choice: '9'"
         Should -Invoke Invoke-OmnikeyTool -Times 0 -Exactly
     }
 
-    It 'the menu exits with 0 on "0" and rejects unknown choices' {
-        Mock Read-Host { '0' }
-        (Invoke-Captured { Invoke-OmnikeyCli }).out | Should -Be @(0)
-        Mock Read-Host { '9' }
-        { Invoke-OmnikeyCli 6>$null } | Should -Throw -ExpectedMessage "Unknown choice: '9'"
-        Should -Invoke Invoke-OmnikeyTool -Times 0 -Exactly
+    It 'menu item 8 starts configure with reader selection enabled' {
+        Mock Invoke-ReaderConfigurator { 0 }
+        $answers = [System.Collections.Queue]::new([object[]]@('8', '0'))
+        Mock Read-Host { $answers.Dequeue() }
+        @((Invoke-Captured { Invoke-OmnikeyCli -Lang pl }).out) | Should -Be @(0)
+        Should -Invoke Invoke-ReaderConfigurator -Times 1 -Exactly -ParameterFilter { $interactive -eq $true -and $lang -eq 'pl' }
     }
 
     It 'readers lists every OMNIKEY reader with model, firmware and what can be configured' {

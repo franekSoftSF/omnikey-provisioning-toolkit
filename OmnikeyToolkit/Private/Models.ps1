@@ -3,7 +3,8 @@
 # OK5022.cs / OK5422.cs / OK5122.cs; OMNIKEY 3121 answers ContactSlotConfiguration (hardware probe).
 # readerName = PC/SC reader name fragment (3121 enumerates as "OMNIKEY 3x21"), used for -ReaderMatch <model id>.
 # verified = configuration verified on real hardware by this project.
-# voltageAuto = $false: the reader does not keep contactSlot.voltageSequence "auto" (hardware test).
+# emvcoVoltage = voltage sequence the reader reports while the contact slot is in EMVCo mode (hardware:
+#   the 3121 reports 5V only and keeps the stored sequence for ISO 7816) - profiles must not ask for another.
 
 $script:ContactlessKeys = @(
     'iso14443a.enabled', 'iso14443a.mifarePreferred', 'iso14443a.mifareKeyCache', 'iso14443a.baud',
@@ -16,7 +17,7 @@ $script:ContactKeys = @('contactSlot.enabled', 'contactSlot.operatingMode', 'con
 $script:Models = @(
     @{ id = '5022'; product = 'OMNIKEY 5022'; readerName = 'OMNIKEY 5022'; contactless = $true;  contact = $false; verified = $true;  exclude = @() }
     @{ id = '3121'; product = 'OMNIKEY 3121'; readerName = 'OMNIKEY 3x21'; contactless = $false; contact = $true;  verified = $true;  exclude = @()
-       voltageAuto = $false }   # fw 1.6.0 accepts "auto" (00) but reports 03 (5V only) after reboot
+       emvcoVoltage = '5V' }
     @{ id = '5422'; product = 'OMNIKEY 5422'; readerName = 'OMNIKEY 5422'; contactless = $true;  contact = $true;  verified = $false
        exclude = @('iso15693.enabled', 'felica.enabled', 'felica.baud', 'pollingSearchOrder') }
     @{ id = '5122'; product = 'OMNIKEY 5122'; readerName = 'OMNIKEY 5122'; contactless = $true;  contact = $true;  verified = $false
@@ -36,7 +37,7 @@ function Resolve-ReaderModel($identity) {
     foreach ($m in $script:Models) {
         if ($identity.Product -and $identity.Product -eq $m.product) {
             return @{
-                id = $m.id; product = $m.product; known = $true; verified = $m.verified; voltageAuto = ($m.voltageAuto -ne $false)
+                id = $m.id; product = $m.product; known = $true; verified = $m.verified; emvcoVoltage = $m.emvcoVoltage
                 contactless = $m.contactless; contact = $m.contact
                 profileKeys = (Get-ModelKeys $m.contactless $m.contact $m.exclude)
             }
@@ -45,7 +46,7 @@ function Resolve-ReaderModel($identity) {
     $cl = [bool]($identity.ContactlessSlots -gt 0)
     $ct = [bool]($identity.ContactSlots -gt 0)
     @{
-        id = $null; product = $(if ($identity.Product) { $identity.Product } else { '?' }); known = $false; verified = $false; voltageAuto = $true
+        id = $null; product = $(if ($identity.Product) { $identity.Product } else { '?' }); known = $false; verified = $false; emvcoVoltage = $null
         contactless = $cl; contact = $ct; profileKeys = (Get-ModelKeys $cl $ct @())
     }
 }

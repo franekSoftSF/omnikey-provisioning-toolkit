@@ -9,10 +9,11 @@ $script:CliCommandParams = @{
     testcard = @('CardTimeout', 'Loop')
     batch    = @('ProfilePath', 'LogCsv', 'InventoryMap', 'PollMs', 'StableSec', 'RebootWait', 'VerifyRetry')
     readers  = @()
+    configure = @('NoReboot')
 }
 $script:CliModes = @{ get = 'Get'; set = 'Set'; verify = 'Verify'; export = 'Export'; testcard = 'TestCard' }
 
-function Assert-CliParameters([string]$command, [string[]]$bound) {
+function Assert-CliParameter([string]$command, [string[]]$bound) {
     $allowed = $script:CliCommonParams + $script:CliCommandParams[$command]
     foreach ($b in $bound) {
         if ($allowed -notcontains $b) { throw (T cliNotFor $b $command) }
@@ -63,7 +64,7 @@ function Show-ReaderList([string]$readerMatch) {
             Write-Host $r -ForegroundColor Cyan
             if ($r -notmatch 'OMNIKEY') { Write-Host (T readersNotProbed) -ForegroundColor DarkGray; continue }
             $info = Invoke-WithReader $r {
-                param($card, $unused)
+                param($card)
                 $id = Read-Identity $card
                 @{ Id = $id; Model = (Resolve-ReaderModel $id) }
             } $null
@@ -77,14 +78,15 @@ function Show-ReaderList([string]$readerMatch) {
     finally { Close-Context }
 }
 
-# interactive menu when Omnikey.ps1 runs without a command; returns $null for exit
+# interactive menu when Omnikey.ps1 runs without a command; returns $null for exit,
+# @{ Invalid } for an unknown choice (the menu loop shows it and asks again)
 function Read-MenuSelection {
     Write-Host (T menuTitle) -ForegroundColor Cyan
     Write-Host (T menuItems)
     $choice = ([string](Read-Host (T menuChoice))).Trim()
-    $map = @{ '1' = 'get'; '2' = 'verify'; '3' = 'set'; '4' = 'export'; '5' = 'testcard'; '6' = 'batch'; '7' = 'readers' }
-    if ($choice -eq '0' -or -not $choice) { return $null }
-    if (-not $map.ContainsKey($choice)) { throw (T menuInvalid $choice) }
+    $map = @{ '1' = 'get'; '2' = 'verify'; '3' = 'set'; '4' = 'export'; '5' = 'testcard'; '6' = 'batch'; '7' = 'readers'; '8' = 'configure' }
+    if ($choice -eq '0') { return $null }
+    if (-not $map.ContainsKey($choice)) { return @{ Command = $null; Invalid = $choice } }
     $sel = @{ Command = $map[$choice]; ProfilePath = '' }
     if ($sel.Command -in 'verify', 'set', 'batch') { $sel.ProfilePath = ([string](Read-Host (T menuProfile))).Trim().Trim('"') }
     $sel
