@@ -19,7 +19,7 @@ jobs:
     env:
       TAG: ${{ github.ref_name }}
       # runtime-only package content (CLAUDE.md release process) - the single place to change it
-      RELEASE_FILES: CheckProfile5022.ps1 Batch-Omnikey5022-Provision.ps1 profiles README.md LICENSE
+      RELEASE_FILES: Omnikey.ps1 CheckProfile5022.ps1 Batch-Omnikey5022-Provision.ps1 OmnikeyToolkit profiles README.md LICENSE
     steps:
       - uses: actions/checkout@v4
 
@@ -27,6 +27,14 @@ jobs:
         run: |
           if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
             echo "::error::Tag '$TAG' is not vX.Y.Z or vX.Y.Z-suffix"; exit 1
+          fi
+          # the module version must match the tag (v1.2.0-rc1 -> 1.2.0)
+          if [ -f OmnikeyToolkit/OmnikeyToolkit.psd1 ]; then
+            VERSION="$(grep -oP "ModuleVersion\s*=\s*'\K[0-9.]+" OmnikeyToolkit/OmnikeyToolkit.psd1)"
+            BASE="${TAG%%-*}"
+            if [ "v$VERSION" != "$BASE" ]; then
+              echo "::error::OmnikeyToolkit.psd1 ModuleVersion $VERSION does not match tag $TAG"; exit 1
+            fi
           fi
 
       - name: Build ZIP and SHA256SUMS.txt
